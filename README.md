@@ -8,6 +8,10 @@ Das gilt auch für die anderen Zeilen der Startseite, z. B. Genre-Zeilen wie „
 
 Deine Listen bleiben unverändert: Jede Staffel bleibt auf AniList ein eigener Eintrag, das Plugin ändert nichts an deinem Konto.
 
+**Folgen anklicken:** Auf der Infoseite eines Anime, den du nicht auf der Platte hast, zeigt Seanime die Folgen mit Bild und Beschreibung, aber ein Klick darauf macht nichts. Mit dem Plugin startet ein Klick auf Bild oder Titel einer Folge direkt den Online-Stream genau dieser Folge (kurz flackert die Seite dabei).
+
+Damit beim Öffnen einer Serie erst die Infoseite kommt und nicht sofort ein Stream lädt, stell in Seanime unter **Settings → „Default episode source“** auf **„Local library“**.
+
 ## Wie die Staffeln gefunden werden
 
 Das Plugin folgt auf AniList den Verknüpfungen „Prequel“ und „Sequel“ und sortiert alles nach Startdatum. Als Staffel zählen TV-Serien, Kurzserien und ONAs. Filme, OVAs und Specials werden mit durchlaufen (damit z. B. ein Film zwischen zwei Staffeln die Kette nicht unterbricht), aber nur angezeigt, wenn du das in den Einstellungen einschaltest.
@@ -25,6 +29,7 @@ In Seanime unter **Extensions → Season Switcher → Preferences**:
 - **Filme, OVAs und Specials anzeigen:** Nein (Standard) oder Ja
 - **Staffeln auf der Startseite zusammenfassen:** Ja (Standard) oder Nein
 - **Welche Karte pro Serie:** erste Staffel (Standard) oder neueste Staffel
+- **Folge anklicken startet Online-Stream:** Ja (Standard) oder Nein
 
 ## Installation
 

@@ -6,6 +6,7 @@
 // Shows every series only once on the home page (library sections and "Continue watching"), and
 // adds a dropdown below the title on anime pages that lists every season of the franchise
 // (found through the AniList PREQUEL/SEQUEL relations, e.g. The Apothecary Diaries S1, S2, S3).
+// Episodes on the info page of an anime you don't have on disk start online streaming when clicked.
 // Picking an entry opens that season's page. Your lists are not touched.
 //
 // UI language: German, English (plugin setting "language").
@@ -548,11 +549,57 @@ function init() {
             }, 400)
         }
 
+        // -----------------------------------------------------------------------------------------
+        // Clickable episodes
+        //
+        // On the info page of an anime that is not on your disk, Seanime lists the episodes but
+        // clicking them does nothing. Here a click on the picture or title opens online streaming
+        // with exactly that episode. Seanime only picks the view when the page opens, so the plugin
+        // leaves the page for a moment and comes back with the episode in the address.
+
+        const EPISODE = "[data-undownloaded-episode-list] [data-episode-grid-item][data-episode-number]"
+        const episodes = { done: {} }
+
+        function playEpisode(mediaId, episodeNumber) {
+            ctx.screen.navigateTo("/settings")
+            ctx.setTimeout(() => {
+                ctx.screen.navigateTo("/entry", { id: String(mediaId), tab: "onlinestream", episode: String(episodeNumber) })
+            }, 60)
+        }
+
+        function setupEpisode(item) {
+            if (!item || episodes.done[item.id]) return
+            const mediaId = parseInt(String(item.attributes["data-media-id"] || state.mediaId || ""), 10)
+            const episodeNumber = parseInt(String(item.attributes["data-episode-number"] || ""), 10)
+            if (!mediaId || !episodeNumber) return
+            episodes.done[item.id] = true
+
+            const onClick = () => playEpisode(mediaId, episodeNumber)
+            item.queryOne("[data-episode-grid-item-image-container]").then((image) => {
+                if (!image) return
+                image.setStyle("cursor", "pointer")
+                image.addEventListener("click", onClick)
+                return ctx.dom.createElement("div").then((overlay) => {
+                    overlay.setAttribute("class", "vtss-play")
+                    overlay.setCssText("position:absolute;inset:0;z-index:3;display:flex;align-items:center;justify-content:center;" +
+                        "pointer-events:none;font-size:2rem;color:#fff;text-shadow:0 2px 10px rgba(0,0,0,.8);opacity:.85")
+                    overlay.setText("▶")
+                    image.append(overlay)
+                })
+            }).catch(() => {})
+            item.queryOne("[data-episode-grid-item-title]").then((title) => {
+                if (!title) return
+                title.setStyle("cursor", "pointer")
+                title.addEventListener("click", onClick)
+            }).catch(() => {})
+        }
+
         function onPage(pathname, searchParams) {
             if (state.pathname !== pathname) {
                 state.pathname = pathname
                 rows.hidden = {}
                 rows.parents = {}
+                episodes.done = {}
                 scheduleMergeRows()
             }
             const id = pathname === "/entry" ? parseInt(String((searchParams && searchParams.id) || ""), 10) : 0
@@ -582,6 +629,10 @@ function init() {
             // so add the dropdown whenever the title container (re)appears.
             ctx.dom.observe(TITLE_CONTAINER, (elements) => {
                 if (elements && elements.length) inject()
+            })
+            ctx.dom.observe(EPISODE, (elements) => {
+                if (pref("episodeClick", "yes") !== "yes") return
+                ;(elements || []).forEach(setupEpisode)
             })
             // Cards on the home page appear while rows load and scroll into view
             ctx.dom.observe(CARD, () => scheduleMergeRows())
