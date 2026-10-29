@@ -62,7 +62,7 @@ function init() {
                         const chunk = missing.slice(i, i + 50)
                         try {
                             const res = JSON.parse(JSON.stringify($anilist.customQuery({
-                                query: "query ($ids: [Int]) { Page(perPage: 50) { media(id_in: $ids, type: ANIME) { id relations { edges { relationType node { id type } } } } } }",
+                                query: "query ($ids: [Int]) { Page(perPage: 50) { media(id_in: $ids, type: ANIME) { id startDate { year month day } relations { edges { relationType node { id type } } } } } }",
                                 variables: { ids: chunk },
                             }, "")))
                             const page = (res && (res.Page || (res.data && res.data.Page))) || {}
@@ -73,7 +73,11 @@ function init() {
                                         (edge.relationType === "PREQUEL" || edge.relationType === "SEQUEL")) r.push(edge.node.id)
                                 })
                                 rel[m.id] = r
-                                $store.set("vtss:rel:" + m.id, { time: Date.now(), rel: r })
+                                const d = m.startDate || {}
+                                $store.set("vtss:rel:" + m.id, {
+                                    time: Date.now(), rel: r,
+                                    start: d.year ? d.year * 10000 + (d.month || 12) * 100 + (d.day || 28) : 99999999,
+                                })
                             })
                         }
                         catch (err) {
@@ -328,7 +332,7 @@ function init() {
         // Page integration
 
         const TITLE_CONTAINER = "[data-media-page-header-entry-details-title-container]"
-        const state = { mediaId: 0, options: null, injecting: false }
+        const state = { mediaId: 0, options: null, injecting: false, pathname: "" }
 
         function removeSwitchers() {
             return ctx.dom.query(".vtss-switcher")
@@ -388,7 +392,169 @@ function init() {
                 })
         }
 
+        // -----------------------------------------------------------------------------------------
+        // Home page rows
+        //
+        // Rows like genre carousels ("Romance") are loaded straight from AniList by the page, so the
+        // library hooks can't touch them. Here the plugin looks at the cards on the home page and
+        // hides every further card of a series that already has one in the same row.
+
+        const CARD = "[data-media-entry-card-container][data-media-id]"
+        const rows = { timer: null, running: false, again: false, hidden: {}, parents: {} }
+
+        // PREQUEL/SEQUEL ids and start date per id, shared with the library hook through $store
+        function loadRelations(ids) {
+            const REL_CACHE_MS = 12 * 60 * 60 * 1000
+            const rel = {}
+            let wanted = ids.slice()
+            for (let round = 0; round < 3 && wanted.length; round++) {
+                const missing = []
+                wanted.forEach((id) => {
+                    if (rel[id]) return
+                    const c = $store.get("vtss:rel:" + id)
+                    if (c && c.time && (Date.now() - c.time) < REL_CACHE_MS && c.start !== undefined) rel[id] = c
+                    else if (missing.indexOf(id) === -1) missing.push(id)
+                })
+                for (let i = 0; i < missing.length; i += 50) {
+                    const res = plain($anilist.customQuery({
+                        query: "query ($ids: [Int]) { Page(perPage: 50) { media(id_in: $ids, type: ANIME) { id startDate { year month day } relations { edges { relationType node { id type } } } } } }",
+                        variables: { ids: missing.slice(i, i + 50) },
+                    }, ""))
+                    const page = (res && (res.Page || (res.data && res.data.Page))) || {}
+                    ;(page.media || []).forEach((m) => {
+                        const r = []
+                        ;((m.relations && m.relations.edges) || []).forEach((edge) => {
+                            if (edge && edge.node && edge.node.type === "ANIME" &&
+                                (edge.relationType === "PREQUEL" || edge.relationType === "SEQUEL")) r.push(edge.node.id)
+                        })
+                        const d = m.startDate || {}
+                        const entry = {
+                            time: Date.now(), rel: r,
+                            start: d.year ? d.year * 10000 + (d.month || 12) * 100 + (d.day || 28) : 99999999,
+                        }
+                        rel[m.id] = entry
+                        $store.set("vtss:rel:" + m.id, entry)
+                    })
+                }
+                const next = []
+                wanted.forEach((id) => ((rel[id] && rel[id].rel) || []).forEach((other) => {
+                    if (!rel[other] && next.indexOf(other) === -1) next.push(other)
+                }))
+                wanted = next
+            }
+            return rel
+        }
+
+        function seriesRoots(rel) {
+            const parent = {}
+            const find = (x) => {
+                while (parent[x] !== undefined && parent[x] !== x) x = parent[x]
+                return x
+            }
+            Object.keys(rel).forEach((key) => {
+                const id = parseInt(key, 10)
+                if (parent[id] === undefined) parent[id] = id
+                ;(rel[key].rel || []).forEach((other) => {
+                    if (parent[other] === undefined) parent[other] = other
+                    const ra = find(id), rb = find(other)
+                    if (ra !== rb) parent[rb] = ra
+                })
+            })
+            return find
+        }
+
+        // The element that takes the card's place in the row: the card itself, or its wrapper when
+        // the wrapper holds only this card (e.g. a carousel slide)
+        function slotOf(card) {
+            if (rows.parents[card.id]) return Promise.resolve(rows.parents[card.id])
+            return card.getParent().then((parent) => {
+                if (!parent) return null
+                return parent.getChildren().then((children) => {
+                    if (children && children.length === 1) {
+                        return parent.getParent().then((grand) => ({ hide: parent.id, row: grand ? grand.id : parent.id }))
+                    }
+                    return { hide: card.id, row: parent.id }
+                })
+            }).then((slot) => {
+                if (slot) rows.parents[card.id] = slot
+                return slot
+            })
+        }
+
+        function mergeRows() {
+            if (rows.running) {
+                rows.again = true
+                return
+            }
+            if (state.pathname !== "/" || pref("mergeLibrary", "yes") !== "yes") return
+            rows.running = true
+            const latest = pref("mergeKeep", "first") === "latest"
+
+            ctx.dom.query(CARD)
+                .then((cards) => {
+                    cards = (cards || []).filter((c) => c && c.attributes && c.attributes["data-media-type"] !== "manga")
+                    const ids = []
+                    cards.forEach((c) => {
+                        const id = parseInt(String(c.attributes["data-media-id"] || ""), 10)
+                        if (id && ids.indexOf(id) === -1) ids.push(id)
+                    })
+                    if (!ids.length) return
+                    const rel = loadRelations(ids)
+                    const find = seriesRoots(rel)
+                    return Promise.all(cards.map((c) => slotOf(c).catch(() => null))).then((slots) => {
+                        // Per row and series: the card to keep
+                        const keep = {}
+                        cards.forEach((c, i) => {
+                            const slot = slots[i]
+                            if (!slot) return
+                            const id = parseInt(String(c.attributes["data-media-id"]), 10)
+                            const key = slot.row + ":" + find(id)
+                            const start = rel[id] ? rel[id].start : 99999999
+                            const cur = keep[key]
+                            if (!cur || (latest ? start > cur.start : start < cur.start)) keep[key] = { hide: slot.hide, start: start }
+                        })
+                        cards.forEach((c, i) => {
+                            const slot = slots[i]
+                            if (!slot) return
+                            const id = parseInt(String(c.attributes["data-media-id"]), 10)
+                            const shouldHide = keep[slot.row + ":" + find(id)].hide !== slot.hide
+                            if (shouldHide && !rows.hidden[slot.hide]) {
+                                rows.hidden[slot.hide] = true
+                                ctx.dom.asElement(slot.hide).setStyle("display", "none")
+                            }
+                            else if (!shouldHide && rows.hidden[slot.hide]) {
+                                delete rows.hidden[slot.hide]
+                                ctx.dom.asElement(slot.hide).removeStyle("display")
+                            }
+                        })
+                    })
+                })
+                .catch((e) => console.warn("season-switcher: could not merge rows", e))
+                .then(() => {
+                    rows.running = false
+                    if (rows.again) {
+                        rows.again = false
+                        scheduleMergeRows()
+                    }
+                })
+        }
+
+        function scheduleMergeRows() {
+            if (state.pathname !== "/") return
+            if (rows.timer) rows.timer()
+            rows.timer = ctx.setTimeout(() => {
+                rows.timer = null
+                mergeRows()
+            }, 400)
+        }
+
         function onPage(pathname, searchParams) {
+            if (state.pathname !== pathname) {
+                state.pathname = pathname
+                rows.hidden = {}
+                rows.parents = {}
+                scheduleMergeRows()
+            }
             const id = pathname === "/entry" ? parseInt(String((searchParams && searchParams.id) || ""), 10) : 0
             if (id === state.mediaId) return
             state.mediaId = id || 0
@@ -417,6 +583,8 @@ function init() {
             ctx.dom.observe(TITLE_CONTAINER, (elements) => {
                 if (elements && elements.length) inject()
             })
+            // Cards on the home page appear while rows load and scroll into view
+            ctx.dom.observe(CARD, () => scheduleMergeRows())
             ctx.screen.onNavigate((e) => onPage(e.pathname, e.searchParams))
             ctx.screen.loadCurrent()
         })
