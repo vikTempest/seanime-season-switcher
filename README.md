@@ -2,7 +2,7 @@
 
 **Startseite:** Jede Serie erscheint nur noch einmal. Liegen z. B. Staffel 1 und Staffel 2 im selben Bereich (etwa „Currently watching“ oder „Completed“), bleibt nur eine Karte stehen. Bei „Continue watching“ bleibt die früheste Staffel, also die, bei der du gerade bist. Stehen die Staffeln in verschiedenen Bereichen (Staffel 1 bei „Completed“, Staffel 2 bei „Watching“), bleiben beide sichtbar, weil sie dort ja etwas anderes bedeuten.
 
-Das gilt auch für die anderen Zeilen der Startseite, z. B. Genre-Zeilen wie „Romance“: Stehen dort Re:ZERO Staffel 3 und 4 nebeneinander, bleibt nur eine Karte. In diesen Zeilen zeigt die Karte immer die erste Staffel (Titel, Jahr, Bild), auch wenn AniList dort nur Staffel 2 einsortiert hat, und ein Klick öffnet Staffel 1.
+Das gilt auch für die anderen Zeilen der Startseite, z. B. Genre-Zeilen wie „Romance“: Stehen dort Re:ZERO Staffel 3 und 4 nebeneinander, bleibt nur eine Karte. Die Karte zeigt immer die erste Staffel (Titel, Jahr, Bild), auch wenn dort eigentlich Staffel 2 stand, und ein Klick öffnet Staffel 1. Bei solchen Karten blendet das Plugin Vorschau-Popup und Fortschritts-Abzeichen aus, weil Seanime die noch von der anderen Staffel füllt. Bei Reihen wie JoJo's Bizarre Adventure steht so eine Karte für die ganze Reihe, die einzelnen Teile wählst du dann im Dropdown.
 
 **Anime-Seite:** Fügt unter dem Titel ein Dropdown **„Staffel“** ein. Darin stehen alle Staffeln des Franchise, z. B. bei *The Apothecary Diaries* Staffel 1, 2 und 3. Wählst du eine aus, springt Seanime direkt auf die Seite dieser Staffel.
 

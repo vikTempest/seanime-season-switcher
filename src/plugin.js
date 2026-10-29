@@ -532,9 +532,8 @@ function init() {
                                 delete rows.hidden[slot.hide]
                                 ctx.dom.asElement(slot.hide).removeStyle("display")
                             }
-                            // A row card from AniList (not one of your list entries) that is a later
-                            // season: show the series as its first season instead
-                            if (!shouldHide && !latest && c.attributes["data-list-data"] === undefined) {
+                            // A card of a later season: show the series under its first season
+                            if (!shouldHide && !latest) {
                                 const first = firstSeason(rel, find, id)
                                 if (first && first.id !== id) swapCard(c, id, first)
                             }
@@ -574,8 +573,7 @@ function init() {
             if (rows.swapped[card.id] === first.id) return
             rows.swapped[card.id] = first.id
             const el = ctx.dom.asElement(card.id)
-            // The hover popup still describes the later season (title, progress, Watch button), so
-            // it is turned off for this card; clicking the card opens the first season instead
+            // Clicking the card opens the first season instead
             el.addClass("vtss-swapped")
             ensureStyle()
             el.queryOne("[data-media-entry-card-title-section-title]").then((title) => {
@@ -616,7 +614,16 @@ function init() {
                     const style = res[0], body = res[1]
                     if (!style || !body) return
                     style.setAttribute("id", "vtss-style")
-                    style.setText(".vtss-swapped [data-media-entry-card-hover-popup] { display: none !important; }")
+                    // Popup and badges still describe the later season, so they are hidden on
+                    // cards that show the first season
+                    style.setText([
+                        "[data-media-entry-card-hover-popup]",
+                        "[data-media-entry-card-body-progress-badge-container]",
+                        "[data-media-entry-card-body-score-badge-container]",
+                        "[data-media-entry-card-body-releasing-badge-container]",
+                        "[data-media-entry-card-body-missing-episodes-badge-container]",
+                        "[data-media-entry-card-body-progress-bar-container]",
+                    ].map((sel) => ".vtss-swapped " + sel).join(", ") + " { display: none !important; }")
                     body.append(style)
                 })
             }).catch(() => {
