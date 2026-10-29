@@ -186,12 +186,14 @@ function init() {
                 season: "Staffel {0}",
                 current: "aktuell",
                 formats: { MOVIE: "Film", OVA: "OVA", ONA: "ONA", SPECIAL: "Special", TV_SHORT: "Kurzserie", MUSIC: "Musik" },
+                episodesTab: "Folgen",
             },
             en: {
                 label: "Season",
                 season: "Season {0}",
                 current: "current",
                 formats: { MOVIE: "Movie", OVA: "OVA", ONA: "ONA", SPECIAL: "Special", TV_SHORT: "Short", MUSIC: "Music" },
+                episodesTab: "Episodes",
             },
         }
         const lang = I18N[pref("language", "de")] ? pref("language", "de") : "de"
@@ -623,7 +625,8 @@ function init() {
                         "[data-media-entry-card-body-releasing-badge-container]",
                         "[data-media-entry-card-body-missing-episodes-badge-container]",
                         "[data-media-entry-card-body-progress-bar-container]",
-                    ].map((sel) => ".vtss-swapped " + sel).join(", ") + " { display: none !important; }")
+                    ].map((sel) => ".vtss-swapped " + sel).join(", ") + " { display: none !important; }" +
+                        (forceInfo ? " [data-anime-entry-page-tabs-container] { display: none !important; }" : ""))
                     body.append(style)
                 })
             }).catch(() => {
@@ -651,11 +654,72 @@ function init() {
         const EPISODE = "[data-undownloaded-episode-list] [data-episode-grid-item][data-episode-number]"
         const episodes = { done: {} }
 
-        function playEpisode(mediaId, episodeNumber) {
-            ctx.screen.navigateTo("/settings")
+        // Seanime only picks the view (episode list, online streaming, ...) when an anime page
+        // opens, so to switch it the plugin leaves the page for a moment (via the home page, so the
+        // back button leads there) and comes back with the view in the address
+        function reopenEntry(mediaId, params) {
+            ctx.screen.navigateTo("/")
             ctx.setTimeout(() => {
-                ctx.screen.navigateTo("/entry", { id: String(mediaId), tab: "onlinestream", episode: String(episodeNumber) })
+                const q = { id: String(mediaId) }
+                Object.keys(params).forEach((k) => q[k] = String(params[k]))
+                ctx.screen.navigateTo("/entry", q)
             }, 60)
+        }
+
+        function playEpisode(mediaId, episodeNumber) {
+            reopenEntry(mediaId, { tab: "onlinestream", episode: episodeNumber })
+        }
+
+        // -----------------------------------------------------------------------------------------
+        // Info page
+        //
+        // Instead of starting the online stream right away, anime pages open on the plugin's own
+        // "Episodes" tab: Seanime's episode list with pictures and descriptions. The stream only
+        // starts when you click an episode. The source tabs (Local library, Online streaming, ...)
+        // are hidden.
+
+        const INFO_TAB = "ext:viktempest-season-switcher"
+        const forceInfo = pref("infoPage", "yes") === "yes"
+
+        ctx.anime.registerEntryEpisodeTab({
+            name: t("episodesTab"),
+            icon: "<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='currentColor' width='18' height='18'><path d='M4 5h16v2H4zm0 6h10v2H4zm0 6h10v2H4zm13-5 5 3.5-5 3.5z'/></svg>",
+            shouldShow: () => true,
+            onSelectEpisode: (e) => {
+                if (e && e.mediaId && e.episodeNumber) playEpisode(e.mediaId, e.episodeNumber)
+            },
+        })
+
+        // Returns true when the page is being replaced
+        function routeToInfoPage(pathname, params, prev) {
+            if (!forceInfo || pathname !== "/entry") return false
+            const id = String((params && params.id) || "")
+            if (!id) return false
+            const tab = String((params && params.tab) || "")
+            const prevSame = prev && prev.pathname === "/entry" && prev.id === id
+            if (tab) return false
+            if (prevSame) {
+                // Back button from the info page: don't bounce back into it
+                if (prev.tab === INFO_TAB) {
+                    ctx.screen.navigateTo("/")
+                    return true
+                }
+                // Seanime removes ?episode=… from the address once the stream plays
+                return false
+            }
+            ctx.screen.navigateTo("/entry", { id: id, tab: INFO_TAB })
+            return true
+        }
+
+        // If Seanime had already chosen online streaming before the address changed (cached
+        // page), the info tab is ignored; then reopen the page once more
+        const ONLINE_VIEW = "[data-anime-entry-page-online-streaming-view]"
+        function checkOnlineView() {
+            const loc = state.loc
+            if (!forceInfo || !loc || loc.pathname !== "/entry" || loc.tab !== INFO_TAB) return
+            if (state.reopened === loc.id) return
+            state.reopened = loc.id
+            reopenEntry(loc.id, { tab: INFO_TAB })
         }
 
         function setupEpisode(item) {
@@ -686,15 +750,23 @@ function init() {
         }
 
         function onPage(pathname, searchParams) {
+            const prev = state.loc
+            state.loc = {
+                pathname: pathname,
+                id: String((searchParams && searchParams.id) || ""),
+                tab: String((searchParams && searchParams.tab) || ""),
+            }
+            if (pathname === "/entry" && state.loc.id !== state.reopened) state.reopened = ""
             // Clicked a home page card that shows a first season but links to a later one
             const r = rows.redirect
-            if (r && pathname === "/entry" && String((searchParams && searchParams.id) || "") === String(r.from)) {
+            if (r && pathname === "/entry" && state.loc.id === String(r.from)) {
                 rows.redirect = null
                 if (Date.now() - r.time < 5000) {
-                    ctx.screen.navigateTo("/entry", { id: String(r.to) })
+                    ctx.screen.navigateTo("/entry", forceInfo ? { id: String(r.to), tab: INFO_TAB } : { id: String(r.to) })
                     return
                 }
             }
+            if (routeToInfoPage(pathname, searchParams, prev)) return
             if (state.pathname !== pathname) {
                 state.pathname = pathname
                 rows.hidden = {}
@@ -735,6 +807,10 @@ function init() {
                 if (pref("episodeClick", "yes") !== "yes") return
                 ;(elements || []).forEach(setupEpisode)
             })
+            ctx.dom.observe(ONLINE_VIEW, (elements) => {
+                if (elements && elements.length) checkOnlineView()
+            })
+            if (forceInfo) ensureStyle()
             // Cards on the home page appear while rows load and scroll into view
             ctx.dom.observe(CARD, () => scheduleMergeRows())
             ctx.screen.onNavigate((e) => onPage(e.pathname, e.searchParams))
