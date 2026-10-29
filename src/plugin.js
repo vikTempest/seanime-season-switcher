@@ -312,10 +312,11 @@ function init() {
                 if (isSeason) season++
                 if (!isSeason && !includeExtras && node.id !== currentId) return
                 const year = (node.startDate && node.startDate.year) || node.seasonYear
-                const prefix = isSeason ? t("season", season) : (t("formats")[node.format] || node.format || "?")
+                // AniList titles already say "Season 2" etc., so only extras get a label
+                const extra = isSeason ? "" : (t("formats")[node.format] || node.format || "")
                 options.push({
                     id: node.id,
-                    label: prefix + " · " + titleOf(node) + (year ? " (" + year + ")" : ""),
+                    label: titleOf(node) + (extra || year ? " (" + [extra, year].filter(Boolean).join(", ") + ")" : ""),
                 })
             })
             return options
@@ -401,9 +402,9 @@ function init() {
         // hides every further card of a series that already has one in the same row.
 
         const CARD = "[data-media-entry-card-container][data-media-id]"
-        const rows = { timer: null, running: false, again: false, hidden: {}, parents: {} }
+        const rows = { timer: null, running: false, again: false, hidden: {}, parents: {}, swapped: {}, redirect: null }
 
-        // PREQUEL/SEQUEL ids and start date per id, shared with the library hook through $store
+        // PREQUEL/SEQUEL ids, start date, format, title and cover per id
         function loadRelations(ids) {
             const REL_CACHE_MS = 12 * 60 * 60 * 1000
             const rel = {}
@@ -412,13 +413,15 @@ function init() {
                 const missing = []
                 wanted.forEach((id) => {
                     if (rel[id]) return
-                    const c = $store.get("vtss:rel:" + id)
-                    if (c && c.time && (Date.now() - c.time) < REL_CACHE_MS && c.start !== undefined) rel[id] = c
+                    const c = $store.get("vtss:info:" + id)
+                    if (c && c.time && (Date.now() - c.time) < REL_CACHE_MS) rel[id] = c
                     else if (missing.indexOf(id) === -1) missing.push(id)
                 })
                 for (let i = 0; i < missing.length; i += 50) {
                     const res = plain($anilist.customQuery({
-                        query: "query ($ids: [Int]) { Page(perPage: 50) { media(id_in: $ids, type: ANIME) { id startDate { year month day } relations { edges { relationType node { id type } } } } } }",
+                        query: "query ($ids: [Int]) { Page(perPage: 50) { media(id_in: $ids, type: ANIME) { id format season seasonYear startDate { year month day } " +
+                            "title { romaji english native } coverImage { extraLarge large } " +
+                            "relations { edges { relationType node { id type } } } } } }",
                         variables: { ids: missing.slice(i, i + 50) },
                     }, ""))
                     const page = (res && (res.Page || (res.data && res.data.Page))) || {}
@@ -432,9 +435,11 @@ function init() {
                         const entry = {
                             time: Date.now(), rel: r,
                             start: d.year ? d.year * 10000 + (d.month || 12) * 100 + (d.day || 28) : 99999999,
+                            id: m.id, format: m.format, season: m.season, seasonYear: m.seasonYear || d.year,
+                            title: m.title || {}, cover: (m.coverImage && (m.coverImage.extraLarge || m.coverImage.large)) || "",
                         }
                         rel[m.id] = entry
-                        $store.set("vtss:rel:" + m.id, entry)
+                        $store.set("vtss:info:" + m.id, entry)
                     })
                 }
                 const next = []
@@ -527,6 +532,12 @@ function init() {
                                 delete rows.hidden[slot.hide]
                                 ctx.dom.asElement(slot.hide).removeStyle("display")
                             }
+                            // A row card from AniList (not one of your list entries) that is a later
+                            // season: show the series as its first season instead
+                            if (!shouldHide && !latest && c.attributes["data-list-data"] === undefined) {
+                                const first = firstSeason(rel, find, id)
+                                if (first && first.id !== id) swapCard(c, id, first)
+                            }
                         })
                     })
                 })
@@ -538,6 +549,58 @@ function init() {
                         scheduleMergeRows()
                     }
                 })
+        }
+
+        function firstSeason(rel, find, id) {
+            const root = find(id)
+            let best = null
+            Object.keys(rel).forEach((key) => {
+                const node = rel[key]
+                if (!node || !node.id || find(node.id) !== root) return
+                const score = (SEASON_FORMATS[node.format] ? 0 : 100000000) + node.start
+                if (!best || score < best.score) best = { score: score, node: node }
+            })
+            return best ? best.node : null
+        }
+
+        function capitalize(s) {
+            s = String(s || "").toLowerCase()
+            return s ? s.charAt(0).toUpperCase() + s.slice(1) : ""
+        }
+
+        // Shows the first season's title, year and cover on the card, and opens the first season
+        // when the card is clicked
+        function swapCard(card, fromId, first) {
+            if (rows.swapped[card.id] === first.id) return
+            rows.swapped[card.id] = first.id
+            const el = ctx.dom.asElement(card.id)
+            el.queryOne("[data-media-entry-card-title-section-title]").then((title) => {
+                if (title) title.setText(titleOf(first))
+            }).catch(() => {})
+            el.queryOne("[data-media-entry-card-title-section-year-season]").then((year) => {
+                if (year) year.setText((capitalize(first.season) + " " + (first.seasonYear || "")).trim())
+            }).catch(() => {})
+            if (first.cover) {
+                el.queryOne("[data-media-entry-card-body-image]").then((image) => {
+                    if (!image) return null
+                    if (String(image.tagName).toUpperCase() === "IMG") return image
+                    return image.queryOne("img")
+                }).then((img) => {
+                    if (!img) return
+                    img.removeAttribute("srcset")
+                    img.setAttribute("src", first.cover)
+                }).catch(() => {})
+            }
+            el.addEventListener("click", () => {
+                rows.redirect = { from: fromId, to: first.id, time: Date.now() }
+                const st = ctx.screen.state && ctx.screen.state()
+                const cur = st && st.get ? st.get() : null
+                // The card's own link may already have opened the later season
+                if (cur && cur.pathname === "/entry" && String(cur.searchParams && cur.searchParams.id) === String(fromId)) {
+                    rows.redirect = null
+                    ctx.screen.navigateTo("/entry", { id: String(first.id) })
+                }
+            })
         }
 
         function scheduleMergeRows() {
@@ -595,10 +658,20 @@ function init() {
         }
 
         function onPage(pathname, searchParams) {
+            // Clicked a home page card that shows a first season but links to a later one
+            const r = rows.redirect
+            if (r && pathname === "/entry" && String((searchParams && searchParams.id) || "") === String(r.from)) {
+                rows.redirect = null
+                if (Date.now() - r.time < 5000) {
+                    ctx.screen.navigateTo("/entry", { id: String(r.to) })
+                    return
+                }
+            }
             if (state.pathname !== pathname) {
                 state.pathname = pathname
                 rows.hidden = {}
                 rows.parents = {}
+                rows.swapped = {}
                 episodes.done = {}
                 scheduleMergeRows()
             }
