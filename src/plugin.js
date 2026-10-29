@@ -574,6 +574,10 @@ function init() {
             if (rows.swapped[card.id] === first.id) return
             rows.swapped[card.id] = first.id
             const el = ctx.dom.asElement(card.id)
+            // The hover popup still describes the later season (title, progress, Watch button), so
+            // it is turned off for this card; clicking the card opens the first season instead
+            el.addClass("vtss-swapped")
+            ensureStyle()
             el.queryOne("[data-media-entry-card-title-section-title]").then((title) => {
                 if (title) title.setText(titleOf(first))
             }).catch(() => {})
@@ -600,6 +604,23 @@ function init() {
                     rows.redirect = null
                     ctx.screen.navigateTo("/entry", { id: String(first.id) })
                 }
+            })
+        }
+
+        function ensureStyle() {
+            if (rows.styled) return
+            rows.styled = true
+            ctx.dom.queryOne("#vtss-style").then((existing) => {
+                if (existing) return
+                return Promise.all([ctx.dom.createElement("style"), ctx.dom.queryOne("body")]).then((res) => {
+                    const style = res[0], body = res[1]
+                    if (!style || !body) return
+                    style.setAttribute("id", "vtss-style")
+                    style.setText(".vtss-swapped [data-media-entry-card-hover-popup] { display: none !important; }")
+                    body.append(style)
+                })
+            }).catch(() => {
+                rows.styled = false
             })
         }
 
