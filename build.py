@@ -3,7 +3,7 @@ d=sys.argv[1]
 m={
  "id":"viktempest-season-switcher",
  "name":"Season Switcher",
- "version":"1.5.0",
+ "version":"1.6.0",
  "manifestURI":"https://raw.githubusercontent.com/vikTempest/seanime-season-switcher/main/season-switcher.json",
  "website":"https://github.com/vikTempest/seanime-season-switcher",
  "language":"javascript",
