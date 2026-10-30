@@ -365,18 +365,16 @@ function init() {
                     if (!title || state.mediaId !== mediaId) return
                     return ctx.dom.createElement("div").then((wrap) => {
                         const optionsHtml = options.map((o) =>
-                            "<option value=\"" + o.id + "\"" + (o.id === mediaId ? " selected" : "") +
-                            " style=\"background:#151515;color:#fff\">" + escapeHtml(o.label) + "</option>",
+                            "<option value=\"" + o.id + "\"" + (o.id === mediaId ? " selected" : "") + ">" +
+                            escapeHtml(o.label) + "</option>",
                         ).join("")
                         wrap.setAttribute("class", "vtss-switcher")
                         wrap.setAttribute("data-media-id", String(mediaId))
-                        wrap.setCssText("display:flex;align-items:center;gap:.6rem;flex-wrap:wrap;margin-top:.75rem;")
+                        // Layout and sizes (phone and desktop) come from the plugin's style sheet
+                        ensureStyle()
                         wrap.setInnerHTML(
-                            "<span style=\"color:var(--muted, #a1a1aa);font-weight:600;font-size:.95rem\">" + escapeHtml(t("label")) + "</span>" +
-                            "<select class=\"vtss-select\" style=\"color-scheme:dark;background:rgba(0,0,0,.45);color:#fff;" +
-                            "border:1px solid rgba(255,255,255,.18);border-radius:.6rem;padding:.4rem 2rem .4rem .75rem;" +
-                            "font-size:.95rem;font-weight:600;max-width:min(90vw,32rem);cursor:pointer;backdrop-filter:blur(6px)\">" +
-                            optionsHtml + "</select>",
+                            "<span class=\"vtss-label\">" + escapeHtml(t("label")) + "</span>" +
+                            "<select class=\"vtss-select\">" + optionsHtml + "</select>",
                         )
                         title.after(wrap)
                         return wrap.queryOne("select").then((select) => {
@@ -607,6 +605,23 @@ function init() {
             })
         }
 
+        // Season dropdown. On phones (below 1024px, where Seanime centers the title) it is centered,
+        // fills the width and uses 16px text so iOS does not zoom in when it is tapped.
+        const SWITCHER_CSS = " .vtss-switcher { display: flex; align-items: center; justify-content: center; gap: .6rem;" +
+            " margin-top: .75rem; width: 100%; }" +
+            " .vtss-label { flex: none; color: var(--muted, #a1a1aa); font-weight: 600; font-size: .95rem; }" +
+            " .vtss-select { flex: 1 1 auto; min-width: 0; max-width: 32rem; min-height: 44px; color-scheme: dark;" +
+            " background: rgba(0,0,0,.45); color: #fff; border: 1px solid rgba(255,255,255,.18); border-radius: .6rem;" +
+            " padding: .4rem 2rem .4rem .75rem; font-size: 16px; font-weight: 600; cursor: pointer;" +
+            " text-overflow: ellipsis; white-space: nowrap; overflow: hidden; backdrop-filter: blur(6px); }" +
+            " .vtss-select option { background: #151515; color: #fff; }" +
+            " @media (min-width: 1024px) { .vtss-switcher { justify-content: flex-start; width: auto; }" +
+            " .vtss-select { flex: 0 1 auto; min-height: 0; font-size: .95rem; } }" +
+            // Play symbol on episode pictures and tappable titles
+            " .vtss-play { position: absolute; inset: 0; z-index: 3; display: flex; align-items: center; justify-content: center;" +
+            " pointer-events: none; font-size: 2rem; color: #fff; text-shadow: 0 2px 10px rgba(0,0,0,.8); opacity: .85; }" +
+            " .vtss-tap { cursor: pointer; -webkit-tap-highlight-color: transparent; touch-action: manipulation; }"
+
         function ensureStyle() {
             if (rows.styled) return
             rows.styled = true
@@ -626,7 +641,8 @@ function init() {
                         "[data-media-entry-card-body-missing-episodes-badge-container]",
                         "[data-media-entry-card-body-progress-bar-container]",
                     ].map((sel) => ".vtss-swapped " + sel).join(", ") + " { display: none !important; }" +
-                        (forceInfo ? " [data-anime-entry-page-tabs-container] { display: none !important; }" : ""))
+                        (forceInfo ? " [data-anime-entry-page-tabs-container] { display: none !important; }" : "") +
+                        SWITCHER_CSS)
                     body.append(style)
                 })
             }).catch(() => {
@@ -732,19 +748,17 @@ function init() {
             const onClick = () => playEpisode(mediaId, episodeNumber)
             item.queryOne("[data-episode-grid-item-image-container]").then((image) => {
                 if (!image) return
-                image.setStyle("cursor", "pointer")
+                image.addClass("vtss-tap")
                 image.addEventListener("click", onClick)
                 return ctx.dom.createElement("div").then((overlay) => {
                     overlay.setAttribute("class", "vtss-play")
-                    overlay.setCssText("position:absolute;inset:0;z-index:3;display:flex;align-items:center;justify-content:center;" +
-                        "pointer-events:none;font-size:2rem;color:#fff;text-shadow:0 2px 10px rgba(0,0,0,.8);opacity:.85")
                     overlay.setText("▶")
                     image.append(overlay)
                 })
             }).catch(() => {})
             item.queryOne("[data-episode-grid-item-title]").then((title) => {
                 if (!title) return
-                title.setStyle("cursor", "pointer")
+                title.addClass("vtss-tap")
                 title.addEventListener("click", onClick)
             }).catch(() => {})
         }
@@ -810,7 +824,7 @@ function init() {
             ctx.dom.observe(ONLINE_VIEW, (elements) => {
                 if (elements && elements.length) checkOnlineView()
             })
-            if (forceInfo) ensureStyle()
+            ensureStyle()
             // Cards on the home page appear while rows load and scroll into view
             ctx.dom.observe(CARD, () => scheduleMergeRows())
             ctx.screen.onNavigate((e) => onPage(e.pathname, e.searchParams))
