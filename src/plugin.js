@@ -191,6 +191,7 @@ function init() {
                 next: "▶ Weiterschauen",
                 minutes: "{0} min geschaut",
                 continueWatching: "Weiterschauen",
+                toEpisodes: "Folgenübersicht",
                 playFailed: "Der Stream konnte nicht geöffnet werden. Ist Online-Streaming in den Einstellungen aktiv?",
                 defaultSet: "Season Switcher: Anime-Seiten öffnen ab jetzt mit der Folgenliste.",
             },
@@ -204,6 +205,7 @@ function init() {
                 next: "▶ Continue",
                 minutes: "{0} min watched",
                 continueWatching: "Continue watching",
+                toEpisodes: "All episodes",
                 playFailed: "Could not open the stream. Is online streaming enabled in the settings?",
                 defaultSet: "Season Switcher: anime pages now open on the episode list.",
             },
@@ -641,7 +643,12 @@ function init() {
             " .vtss-continue { margin: 0 0 1.75rem; }" +
             " .vtss-continue-label { font-size: 1.15rem; font-weight: 600; margin: 0 0 .75rem; }" +
             " .vtss-continue-item { cursor: pointer; }" +
-            " .vtss-continue [data-vtss-copy-action] { display: none !important; }"
+            " .vtss-continue [data-vtss-copy-action] { display: none !important; }" +
+            // Episode list next to the stream: picture and title only (Seanime blurs titles per its spoiler settings)
+            " [data-anime-entry-page-online-streaming-view] [data-episode-grid-item-episode-description] { display: none !important; }" +
+            " .vtss-episodes-btn { display: inline-flex; align-items: center; gap: .4rem; height: 2rem; padding: 0 .85rem; border-radius: 9999px;" +
+            " background: rgba(255,255,255,.07); color: inherit; font-size: .875rem; font-weight: 600; cursor: pointer; white-space: nowrap; }" +
+            " .vtss-episodes-btn:hover { background: rgba(255,255,255,.14); }"
 
         // Season dropdown. On phones (below 1024px, where Seanime centers the title) it is centered,
         // fills the width and uses 16px text so iOS does not zoom in when it is tapped.
@@ -950,6 +957,24 @@ function init() {
             reopenEntry(loc.id, { tab: INFO_TAB })
         }
 
+        // Button above the episode list next to the stream that leads back to the Episodes tab
+        const VIEW_TOGGLE = ONLINE_VIEW + " button[title^=\"Switch to\"]"
+        function addEpisodesButton(toggle) {
+            const mediaId = state.mediaId
+            if (!toggle || !mediaId) return
+            ctx.dom.queryOne("[data-vtss-episodes-btn]").then((existing) => {
+                if (existing) return
+                return ctx.dom.createElement("button").then((btn) => {
+                    btn.setAttribute("class", "vtss-episodes-btn")
+                    btn.setAttribute("type", "button")
+                    btn.setAttribute("data-vtss-episodes-btn", "1")
+                    btn.setText("☰ " + t("toEpisodes"))
+                    btn.addEventListener("click", () => reopenEntry(state.mediaId || mediaId, { tab: INFO_TAB }))
+                    toggle.before(btn)
+                })
+            }).catch(() => {})
+        }
+
         function setupEpisode(item) {
             if (!item || episodes.done[item.id]) return
             const mediaId = parseInt(String(item.attributes["data-media-id"] || state.mediaId || ""), 10)
@@ -1055,6 +1080,9 @@ function init() {
             })
             ctx.dom.observe(ONLINE_VIEW, (elements) => {
                 if (elements && elements.length) checkOnlineView()
+            })
+            ctx.dom.observe(VIEW_TOGGLE, (elements) => {
+                if (elements && elements.length) addEpisodesButton(elements[0])
             })
             ensureStyle()
             // Cards on the home page appear while rows load and scroll into view
