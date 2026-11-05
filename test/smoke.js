@@ -159,17 +159,26 @@ const $anilist = {
     refreshAnimeCollection() {}, refreshMangaCollection() {},
 }
 
-const sandbox = {
-    console: { log() {}, info() {}, warn() {}, error: (...a) => console.error("     [plugin error]", ...a) },
-    $store: { get: (k) => store.get(k), set: (k, v) => store.set(k, JSON.parse(JSON.stringify(v))) },
-    $storage: { get: (k) => storage.get(k), set: (k, v) => storage.set(k, JSON.parse(JSON.stringify(v))) },
-    $anilist,
-    $database: { anilist: { getToken: () => "" } },
-    $app: new Proxy({}, { get: (_, k) => (fn) => { hooks[k] = fn } }),
-    $ui: { register: (fn) => { uiFn = fn } },
+// Seanime loads the payload in one runtime and then runs the $ui.register() callback and every
+// hook in other runtimes, compiled from their source text only. The test does the same, so code
+// that uses something from outside its function fails here like it does in Seanime.
+function bindings() {
+    const b = {
+        console: { log() {}, info() {}, warn() {}, error: (...a) => console.error("     [plugin error]", ...a) },
+        $store: { get: (k) => store.get(k), set: (k, v) => store.set(k, JSON.parse(JSON.stringify(v))) },
+        $storage: { get: (k) => storage.get(k), set: (k, v) => storage.set(k, JSON.parse(JSON.stringify(v))) },
+        $anilist,
+        $database: { anilist: { getToken: () => "" } },
+    }
+    b.globalThis = b
+    return vm.createContext(b)
 }
-sandbox.globalThis = sandbox
-vm.createContext(sandbox)
+function isolated(fn) {
+    return vm.runInContext("(" + fn.toString() + ")", bindings())
+}
+const sandbox = bindings()
+sandbox.$app = new Proxy({}, { get: (_, k) => (fn) => { hooks[k] = isolated(fn) } })
+sandbox.$ui = { register: (fn) => { uiFn = isolated(fn) } }
 
 // ---- Tests -----------------------------------------------------------------------------------
 
@@ -251,11 +260,16 @@ setImmediate(() => {
                     const s = storage.get("vsuite:settings")
                     s.theme = "on"
                     storage.set("vsuite:settings", s)
-                    const loaded = vm.runInContext("vsLoadSettings()", sandbox)
-                    assert.strictEqual(loaded.theme, "red")
+                    page.channel.sent.length = 0
+                    page.channel.handlers.ready()
+                })
+                setImmediate(() => check("old 'on' value shown as red", () => {
+                    const init = page.channel.sent.find((m) => m.name === "init")
+                    assert.strictEqual(init.payload.values.theme, "red")
+                    const s = storage.get("vsuite:settings")
                     s.theme = "off"
                     storage.set("vsuite:settings", s)
-                })
+                }))
                 check("library hook keeps one card per series", () => {
                     const e = { libraryCollection: { lists: [{ entries: [{ mediaId: 3, media: node(3, 0) }, { mediaId: 2, media: node(2, 0) }, { mediaId: 1, media: node(1, 0) }] }] }, next() {} }
                     hooks.onAnimeLibraryCollection(e)

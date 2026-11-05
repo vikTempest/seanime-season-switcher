@@ -38,9 +38,16 @@ PREF = (
 
 
 def module(path, name, patches=()):
+    """Splits a plugin into its init() part (hooks) and its UI function.
+
+    Seanime runs the function given to $ui.register() in a separate runtime, compiled from its
+    source text alone: it can't see anything else in the payload. So the UI functions of all
+    modules and settings.js are put together into one $ui.register() callback (see below), and the
+    hooks stay in init(). Both plugins end with their $ui.register() call as the last statement
+    of init(), which is what the split relies on.
+    """
     src = read(path)
     src = "\n".join(l for l in src.split("\n") if not l.startswith("/// <reference"))
-    fn = "vsInit_" + name
 
     def once(old, new):
         nonlocal src
@@ -49,19 +56,31 @@ def module(path, name, patches=()):
             sys.exit("%s: expected exactly one %r, found %d" % (path, old, n))
         src = src.replace(old, new)
 
-    once("function init() {", "function %s() {" % fn)
-    once("$ui.register((ctx) => {", 'vsRegister("%s", (ctx) => {' % name)
     for old, new in patches:
         once(old, new)
     src = src.replace("$getUserPreference", PREF)
-    return fn, "// " + "=" * 97 + "\n// Module: " + name + "\n\n" + src.strip() + "\n"
+
+    opener = "$ui.register((ctx) => {"
+    closer = "\n    })\n}"
+    if src.count(opener) != 1 or not src.rstrip().endswith(closer.strip()) or src.rstrip()[-len(closer):] != closer:
+        sys.exit("%s: $ui.register((ctx) => { ... }) must be the last statement of init()" % path)
+    body = src.rstrip()
+    i = body.index(opener)
+    hooks = body[:i].rstrip() + "\n}\n"
+    ui = "(ctx) => {" + body[i + len(opener):-len(closer)] + "\n    }"
+    fn = "vsInit_" + name
+    if hooks.count("function init() {") != 1:
+        sys.exit("%s: expected exactly one init()" % path)
+    hooks = hooks.replace("function init() {", "function %s() {" % fn)
+    banner = "// " + "=" * 97 + "\n// Module: " + name + "\n\n"
+    return fn, banner + hooks.strip() + "\n", banner + 'vsRegister("%s", %s)\n' % (name, ui)
 
 
-switcher_fn, switcher = module("src/plugin.js", "switcher", [
+switcher_fn, switcher_hooks, switcher_ui = module("src/plugin.js", "switcher", [
     # The episodes tab is named after the extension id
     ('"ext:viktempest-season-switcher"', '"ext:%s"' % ID),
 ])
-ratings_fn, ratings = module("suite/ratings/plugin.js", "ratings")
+ratings_fn, ratings_hooks, ratings_ui = module("suite/ratings/plugin.js", "ratings")
 
 
 
@@ -93,26 +112,43 @@ mobile = themed(read("suite/theme/netflix-theme-mobile.css"), "netflix-theme-mob
 # Seanime uses "Custom CSS" from 1024px and "Mobile custom CSS" below, the same split here
 theme_css = "@media (min-width: 1024px) {\n" + desktop + "\n}\n@media (max-width: 1023.98px) {\n" + mobile + "\n}\n"
 
+def indent(text):
+    return "\n".join(("    " + l) if l else l for l in text.split("\n"))
+
+
+# Everything the UI needs lives inside the one $ui.register() callback (see module())
+ui_callback = "\n".join([
+    "(ctx) => {",
+    indent("const VS_VERSION = " + json.dumps(VERSION)),
+    indent("const VS_THEME_CSS = " + json.dumps(theme_css, ensure_ascii=False)),
+    "",
+    indent(read("suite/settings.js").strip()),
+    "",
+    indent(switcher_ui.strip()),
+    "",
+    indent(ratings_ui.strip()),
+    "",
+    "    vsSetupUI(ctx)",
+    "}",
+])
+
 payload = "\n".join([
     "/// <reference path=\"./plugin.d.ts\" />",
     "/// <reference path=\"./app.d.ts\" />",
     "",
-    "// VikTempest Seanime UI for Seanime " + VERSION + ": Season Switcher, AniList Custom Ratings and the Netflix theme",
+    "// VikTempest Seanime UI for Seanime " + VERSION + ": Season Switcher, AniList Custom Ratings and a theme with colour schemes",
     "// in one extension, with a settings page in the sidebar. Built by suite/build.py, edit the sources there.",
+    "// Seanime runs init() (hooks) and the $ui.register() callback (everything else) in separate runtimes,",
+    "// each from its own source text, so neither can use anything defined outside of it.",
     "",
-    "const VS_VERSION = " + json.dumps(VERSION) + "",
-    "const VS_THEME_CSS = " + json.dumps(theme_css, ensure_ascii=False),
-    "",
-    read("suite/settings.js").strip(),
-    "",
-    switcher,
-    ratings,
+    switcher_hooks,
+    ratings_hooks,
     "// " + "=" * 97,
     "",
     "function init() {",
     "    " + switcher_fn + "()",
     "    " + ratings_fn + "()",
-    "    $ui.register((ctx) => vsSetupUI(ctx))",
+    "    $ui.register(" + ui_callback + ")",
     "}",
     "",
 ])

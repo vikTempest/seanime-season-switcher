@@ -75,4 +75,6 @@ Seanime schickt Seitenwechsel von Plugins an alle offenen Geräte. Springt eine 
 - `suite/theme/`: Netflix-Theme (Desktop und Handy). Die Dateien bleiben direkt als Custom CSS nutzbar. Beim Bauen werden die festen Farben durch die Farben des gewählten Schemas ersetzt.
 - `test/smoke.js`: startet die Erweiterung mit nachgebauten Seanime-Schnittstellen und prüft die wichtigsten Abläufe
 
+Wichtig: Seanime führt `init()` (Hooks) und die Funktion in `$ui.register()` in getrennten Umgebungen aus, jeweils nur aus ihrem eigenen Quelltext. `suite/build.py` packt deshalb alles für die Oberfläche (Einstellungsseite und die Oberfläche beider Teile) in eine einzige `$ui.register()`-Funktion. Der Test macht das genauso nach.
+
 Nach jeder Änderung: `VERSION` in `suite/build.py` erhöhen, `python3 suite/build.py .` und `node test/smoke.js` ausführen. GitHub prüft bei jedem Push, ob die JSON zum Code passt und der Test durchläuft.
