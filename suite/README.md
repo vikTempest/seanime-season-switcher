@@ -1,4 +1,4 @@
-# VikTempest's UI – alles in einer Erweiterung
+# VikTempest Seanime UI – alles in einer Erweiterung
 
 Eine einzige Erweiterung für Seanime mit allem drin:
 
@@ -8,7 +8,7 @@ Eine einzige Erweiterung für Seanime mit allem drin:
 
 ## Einstellungen
 
-Alle Einstellungen stehen auf einer eigenen Seite: in der linken Seitenleiste von Seanime auf **„VikTempest's UI“** klicken. Dort gibt es:
+Alle Einstellungen stehen auf einer eigenen Seite: in der linken Seitenleiste von Seanime auf **„VikTempest Seanime UI“** klicken. Dort gibt es:
 
 - **Sprache** für alle Teile zusammen (Deutsch, English, Español, Português, 日本語). Der Season Switcher kann nur Deutsch und Englisch, bei den anderen Sprachen nimmt er Englisch.
 - **Jeden Teil einzeln an/aus** (Season Switcher, Custom Ratings, Netflix-Theme)
@@ -20,12 +20,12 @@ Die Einstellungen werden im Plugin gespeichert, nicht mehr unter Extensions → 
 
 ## Installation
 
-**Wichtig:** Deinstalliere vorher unter **Extensions** die einzelnen Plugins **Season Switcher** und **AniList Custom Ratings**, sonst läuft alles doppelt. Hast du das Netflix-Theme unter Einstellungen → User Interface → CSS eingefügt, leere dort die Felder und schalte das Theme stattdessen auf der Seite „VikTempest's UI“ ein.
+**Wichtig:** Deinstalliere vorher unter **Extensions** die einzelnen Plugins **Season Switcher** und **AniList Custom Ratings**, sonst läuft alles doppelt. Hast du das Netflix-Theme unter Einstellungen → User Interface → CSS eingefügt, leere dort die Felder und schalte das Theme stattdessen auf der Seite „VikTempest Seanime UI“ ein.
 
 In Seanime unter **Extensions** auf „Add extensions“ klicken und unter „Install from URL“ diesen Link einfügen:
 
 ```
-https://raw.githubusercontent.com/vikTempest/seanime-season-switcher/main/viktempest-ui.json
+https://raw.githubusercontent.com/vikTempest/vikTempest-Seanime-UI/main/viktempest-ui.json
 ```
 
 Danach die Erweiterung aktivieren und die Berechtigungen bestätigen (AniList, AniList-Token, Datenbank, Einstellungen, Speicher). Das sind einfach die Berechtigungen beider Plugins zusammen.

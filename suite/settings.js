@@ -1,5 +1,5 @@
 // -------------------------------------------------------------------------------------------------
-// VikTempest's UI: settings page, Netflix theme and module loader.
+// VikTempest Seanime UI: settings page, Netflix theme and module loader.
 //
 // All settings live in $storage under "vsuite:settings" and are mirrored to $store so the hooks
 // (which run in their own runtime) can read them too. The modules read them through the same
@@ -80,7 +80,7 @@ function vsSaveSettings(s) {
 
 const VS_PAGE_TEXT = {
     de: {
-        title: "VikTempest's UI",
+        title: "VikTempest Seanime UI",
         intro: "Alle Einstellungen für Season Switcher, AniList Custom Ratings und das Netflix-Theme.",
         general: "Allgemein", switcher: "Season Switcher", ratings: "AniList Custom Ratings",
         on: "An", off: "Aus", yes: "Ja", no: "Nein",
@@ -90,7 +90,7 @@ const VS_PAGE_TEXT = {
         disabled: "Dieser Teil ist ausgeschaltet.",
     },
     en: {
-        title: "VikTempest's UI",
+        title: "VikTempest Seanime UI",
         intro: "All settings for Season Switcher, AniList Custom Ratings and the Netflix theme.",
         general: "General", switcher: "Season Switcher", ratings: "AniList Custom Ratings",
         on: "On", off: "Off", yes: "Yes", no: "No",
@@ -253,7 +253,7 @@ function vsSetupUI(ctx) {
         slot: "screen",
         fullWidth: true,
         autoHeight: true,
-        sidebar: { label: "VikTempest's UI", icon: VS_SIDEBAR_ICON },
+        sidebar: { label: "VikTempest Seanime UI", icon: VS_SIDEBAR_ICON },
     })
     page.setContent(() => VS_PAGE_HTML)
 

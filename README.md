@@ -1,3 +1,5 @@
+> **Neu: VikTempest Seanime UI.** Season Switcher, AniList Custom Ratings und das Netflix-Theme gibt es jetzt zusammen in einer Erweiterung mit eigener Einstellungsseite. Installieren per Link: `https://raw.githubusercontent.com/vikTempest/vikTempest-Seanime-UI/main/viktempest-ui.json` (vorher den einzelnen Season Switcher und AniList Custom Ratings deinstallieren). Mehr dazu in [suite/README.md](suite/README.md).
+
 # Season Switcher – Plugin für Seanime
 
 **Startseite:** Jede Serie erscheint nur noch einmal. Liegen z. B. Staffel 1 und Staffel 2 im selben Bereich (etwa „Currently watching“ oder „Completed“), bleibt nur eine Karte stehen. Bei „Continue watching“ bleibt die früheste Staffel, also die, bei der du gerade bist. Stehen die Staffeln in verschiedenen Bereichen (Staffel 1 bei „Completed“, Staffel 2 bei „Watching“), bleiben beide sichtbar, weil sie dort ja etwas anderes bedeuten.
