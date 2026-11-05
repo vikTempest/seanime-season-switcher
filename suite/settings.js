@@ -247,7 +247,7 @@ const VS_CHANGES = {
         "1.1.1: Farbwahl als kleines Fenster mit ×, Seanime bleibt dabei bedienbar; AniList-Anfragen in kleinen Portionen, damit nichts hängt",
         "1.1.2: Das Symbol oben (Tray) hat jetzt den Knopf „Einstellungen öffnen“; „Aktualisieren“ meldet sich, wenn es fertig ist",
         "1.2.0: Extras: Bildschirmschoner, Schlaftimer und Schnellsuche (Strg+K), Hinweis auf neue Staffeln, Filler abdunkeln oder ausblenden, Rechtsklick auf Folgen, Bewerten nach der letzten Folge",
-        "1.2.1: Absturz beim Zeichnen des Symbols oben behoben",
+        "1.2.1: Seanime hängt nicht mehr nach der Installation (Bildschirmschoner-Erkennung), Absturz beim Symbol oben behoben",
     ],
     en: [
         "Colour schemes: red, purple, blue or your own colours, picked on first start",
@@ -258,7 +258,7 @@ const VS_CHANGES = {
         "1.1.1: colour picker is a small window with ×, Seanime stays usable; AniList requests in small batches so nothing hangs",
         "1.1.2: The tray icon at the top now has an \"Open settings\" button; \"Refresh\" tells you when it is done",
         "1.2.0: Extras: screensaver, sleep timer and quick search (Ctrl+K), notice about new seasons, dim or hide filler, right-click on episodes, rating after the last episode",
-        "1.2.1: Fixed a crash while drawing the tray icon",
+        "1.2.1: Seanime no longer hangs after installing (screensaver activity check), fixed a crash in the tray icon",
     ],
 }
 

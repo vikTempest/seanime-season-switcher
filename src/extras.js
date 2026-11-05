@@ -173,31 +173,22 @@ function init() {
         onVideo("video-completed", () => rate.onCompleted())
 
         // -----------------------------------------------------------------------------------------
-        // Activity: the last time you used the mouse or keyboard in Seanime. Each listener sends
-        // one event and is then off for a while, so moving the mouse doesn't flood the plugin.
+        // Activity: the last time you clicked, typed or scrolled in Seanime. One listener per
+        // event type, added once and never removed: Seanime can't reliably remove DOM listeners,
+        // and mouse movement would send far too many events, so it isn't watched.
 
         let lastActive = Date.now()
-        const ACTIVITY_EVENTS = ["mousemove", "pointerdown", "keydown", "wheel", "touchstart"]
-        const ACTIVITY_PAUSE_MS = 15000
+        const ACTIVITY_EVENTS = ["pointerdown", "keydown", "wheel"]
         let watchedBody = ""
 
         function watchActivity() {
             ctx.dom.queryOne("body").then((body) => {
                 if (!body || body.id === watchedBody) return
                 watchedBody = body.id
-                ACTIVITY_EVENTS.forEach((ev) => {
-                    const arm = () => {
-                        let off = null
-                        off = body.addEventListener(ev, () => {
-                            lastActive = Date.now()
-                            if (typeof off === "function") off()
-                            ctx.setTimeout(arm, ACTIVITY_PAUSE_MS)
-                        })
-                    }
-                    arm()
-                })
+                ACTIVITY_EVENTS.forEach((ev) => body.addEventListener(ev, () => { lastActive = Date.now() }))
             }).catch((e) => console.warn("viktempest-ui extras: activity", e))
         }
+        ctx.screen.onNavigate(() => { lastActive = Date.now() })
         ctx.dom.onMainTabReady(() => { watchedBody = ""; watchActivity() })
         watchActivity()
 
