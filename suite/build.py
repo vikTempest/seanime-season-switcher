@@ -16,7 +16,7 @@ import re
 import sys
 
 ROOT = sys.argv[1] if len(sys.argv) > 1 else "."
-VERSION = "1.1.0"
+VERSION = "1.1.1"
 ID = "viktempest-ui"
 JSON_NAME = "viktempest-ui.json"
 

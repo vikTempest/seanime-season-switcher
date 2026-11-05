@@ -217,9 +217,9 @@ setImmediate(() => {
         assert.strictEqual(init.payload.values.theme, "off")
     })
 
-    check("first start shows the colour picker over the whole window", () => {
+    check("first start shows the colour picker as a window, not over the whole app", () => {
         assert.ok(picker, "no picker")
-        assert.ok(/100vw/.test(picker.options.style) && picker.options.window.frameless)
+        assert.ok(picker.options.window.frameless && !/height:100vh/.test(picker.options.style), "picker must not cover the whole app")
         picker.channel.handlers.ready()
         assert.ok(picker.channel.sent.some((m) => m.name === "init"))
     })

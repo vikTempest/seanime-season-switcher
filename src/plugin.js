@@ -51,6 +51,10 @@ function init() {
                 // Several rounds, so seasons are also connected through entries that are not shown here
                 // (e.g. Season 1 and 3 in this section, Season 2 somewhere else or not on your list)
                 let wanted = ids.slice()
+                // Seanime waits for this hook before it shows the home page, and AniList allows
+                // only a few requests per minute. So at most 3 requests per call: what is missing
+                // gets merged the next time the home page loads.
+                let requests = 0
                 for (let round = 0; round < 8 && wanted.length; round++) {
                     const missing = []
                     wanted.forEach((id) => {
@@ -60,6 +64,8 @@ function init() {
                         else if (missing.indexOf(id) === -1) missing.push(id)
                     })
                     for (let i = 0; i < missing.length; i += 25) {
+                        if (requests >= 3) break
+                        requests++
                         const chunk = missing.slice(i, i + 25)
                         try {
                             const res = JSON.parse(JSON.stringify($anilist.customQuery({
@@ -305,10 +311,12 @@ function init() {
         let rateLimitToast = 0
         function checkRateLimit(e) {
             const msg = String((e && (e.message || e)) || "")
-            if (!/429|too many|rate.?limit/i.test(msg)) return
-            if (Date.now() - rateLimitToast < 120000) return
-            rateLimitToast = Date.now()
-            ctx.toast.warning(t("rateLimit"))
+            if (!/429|too many|rate.?limit/i.test(msg)) return false
+            if (Date.now() - rateLimitToast >= 120000) {
+                rateLimitToast = Date.now()
+                ctx.toast.warning(t("rateLimit"))
+            }
+            return true
         }
 
         // Tells the settings page that a part of Seanime's page was found (see "Status" there)
@@ -536,10 +544,20 @@ function init() {
         const CARD = "[data-media-entry-card-container][data-media-id]"
         const rows = { timer: null, running: false, again: false, hidden: {}, parents: {}, swapped: {}, badged: {}, redirect: null }
 
+        // AniList requests block the plugin while they run (also its windows and the settings
+        // page), and AniList allows only a few per minute. So the home page asks for at most
+        // REL_BATCHES requests at a time and continues a moment later, and waits a minute after
+        // AniList said "too many requests".
+        const REL_BATCHES = 2
+        const REL_PAUSE_MS = 2500
+        const relLimit = { until: 0, incomplete: false }
+
         // PREQUEL/SEQUEL ids, start date, format, title and cover per id
         function loadRelations(ids) {
             const REL_CACHE_MS = CACHE_MS
             const rel = {}
+            let requests = 0
+            relLimit.incomplete = false
             let wanted = ids.slice()
             for (let round = 0; round < 8 && wanted.length; round++) {
                 const missing = []
@@ -550,6 +568,11 @@ function init() {
                     else if (missing.indexOf(id) === -1) missing.push(id)
                 })
                 for (let i = 0; i < missing.length; i += 25) {
+                    if (requests >= REL_BATCHES || Date.now() < relLimit.until) {
+                        relLimit.incomplete = true
+                        break
+                    }
+                    requests++
                     let res = null
                     try {
                         res = plain($anilist.customQuery({
@@ -562,7 +585,7 @@ function init() {
                     catch (e) {
                         // e.g. AniList's request limit: use what we have, the rest comes next time
                         console.warn("season-switcher: could not load relations", e)
-                        checkRateLimit(e)
+                        if (checkRateLimit(e)) relLimit.until = Date.now() + 60000
                         continue
                     }
                     const page = (res && (res.Page || (res.data && res.data.Page))) || {}
@@ -688,6 +711,15 @@ function init() {
                     if (rows.again) {
                         rows.again = false
                         scheduleMergeRows()
+                    }
+                    else if (relLimit.incomplete) {
+                        // Not everything loaded yet: continue a little later, so the plugin can
+                        // answer clicks in between
+                        if (rows.timer) rows.timer()
+                        rows.timer = ctx.setTimeout(() => {
+                            rows.timer = null
+                            mergeRows()
+                        }, Math.max(REL_PAUSE_MS, relLimit.until - Date.now()))
                     }
                 })
         }

@@ -169,6 +169,7 @@ const VS_CHANGES = {
         "Staffel-Dropdown zeigt deinen Fortschritt, Startseite zeigt „X Staffeln“",
         "Season Switcher spricht jetzt alle 5 Sprachen",
         "Status-Bereich zeigt, ob nach einem Seanime-Update noch alles gefunden wird",
+        "1.1.1: Farbwahl als kleines Fenster mit ×, Seanime bleibt dabei bedienbar; AniList-Anfragen in kleinen Portionen, damit nichts hängt",
     ],
     en: [
         "Colour schemes: red, purple, blue or your own colours, picked on first start",
@@ -176,6 +177,7 @@ const VS_CHANGES = {
         "Season dropdown shows your progress, home page shows \"X seasons\"",
         "Season Switcher now speaks all 5 languages",
         "Status section shows whether everything is still found after a Seanime update",
+        "1.1.1: colour picker is a small window with ×, Seanime stays usable; AniList requests in small batches so nothing hangs",
     ],
 }
 
@@ -214,7 +216,7 @@ const VS_PAGE_TEXT = {
         status: "Status", news: "Neu in dieser Version",
         on: "An", off: "Aus", yes: "Ja", no: "Nein",
         save: "Speichern", saved: "Gespeichert.", reset: "Auf Standard zurücksetzen",
-        resetAsk: "Alle Einstellungen auf Standard zurücksetzen?", resetDone: "Zurückgesetzt.",
+        resetAsk: "Alle Einstellungen auf Standard zurücksetzen? Zum Bestätigen noch einmal klicken.", resetConfirm: "Ja, zurücksetzen", resetDone: "Zurückgesetzt.",
         restart: "Starte Seanime neu, damit alle Änderungen übernommen werden.",
         restartMark: "nach Neustart",
         disabled: "Dieser Teil ist ausgeschaltet.",
@@ -236,7 +238,7 @@ const VS_PAGE_TEXT = {
         status: "Status", news: "New in this version",
         on: "On", off: "Off", yes: "Yes", no: "No",
         save: "Save", saved: "Saved.", reset: "Reset to defaults",
-        resetAsk: "Reset all settings to their defaults?", resetDone: "Reset.",
+        resetAsk: "Reset all settings to their defaults? Click again to confirm.", resetConfirm: "Yes, reset", resetDone: "Reset.",
         restart: "Restart Seanime so every change is applied.",
         restartMark: "after restart",
         disabled: "This part is turned off.",
@@ -313,7 +315,7 @@ const VS_PAGE_HTML = `<!DOCTYPE html>
 <div class="wrap" id="app"><p class="intro">…</p></div>
 <script>
 (function () {
-  var fields = [], values = {}, text = {}, lang = "de", saved = {}, accent = "", data = {};
+  var fields = [], values = {}, text = {}, lang = "de", saved = {}, accent = "", data = {}, resetArmed = false;
   function L(v) { return v && typeof v === "object" ? (v[lang] || v.en || "") : String(v == null ? "" : v); }
   function F(s, a) { return String(s).replace("{0}", String(a)); }
   function esc(s) { return String(s).replace(/[&<>"']/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]; }); }
@@ -366,7 +368,7 @@ const VS_PAGE_HTML = `<!DOCTYPE html>
       h += "</div>";
     });
     h += "<div class='bar'><button class='save' id='save'" + (dirty() ? "" : " disabled") + ">" + esc(text.save) + "</button>" +
-      "<button class='ghost' id='reset'>" + esc(text.reset) + "</button>" +
+      "<button class='ghost' id='reset'>" + esc(resetArmed ? text.resetConfirm : text.reset) + "</button>" +
       "<span class='msg'>" + esc(msg || "") + "</span></div>";
     h += "<div class='card'><h2>" + esc(text.status) + "</h2><p class='note'>" + esc(text.statusHint) + "</p>";
     Object.keys(text.health || {}).forEach(function (k) {
@@ -396,8 +398,10 @@ const VS_PAGE_HTML = `<!DOCTYPE html>
       saved = JSON.parse(JSON.stringify(values));
       render(text.saved + (needRestart ? " " + text.restart : ""));
     });
+    // Click twice: window.confirm() does not work in Seanime's sandboxed webviews
     document.getElementById("reset").addEventListener("click", function () {
-      if (!window.confirm(text.resetAsk)) return;
+      if (!resetArmed) { resetArmed = true; render(text.resetAsk); return; }
+      resetArmed = false;
       window.webview.send("reset", {});
     });
   }
@@ -420,9 +424,11 @@ const VS_PAGE_HTML = `<!DOCTYPE html>
 // First start: pick a colour scheme. Shown once as a window over the whole app.
 const VS_PICKER_TEXT = {
     de: { title: "Welches Farbschema willst du?", intro: "Ein Klick ändert die Farben sofort. Du kannst es später jederzeit auf der Seite „VikTempest Seanime UI“ in der Seitenleiste ändern.",
-          red: "Rot", purple: "Lila", blue: "Blau", custom: "Eigene Farben", off: "Kein Theme", accent: "Akzent", bg: "Hintergrund", done: "Fertig" },
+          red: "Rot", purple: "Lila", blue: "Blau", custom: "Eigene Farben", off: "Kein Theme", accent: "Akzent", bg: "Hintergrund", done: "Fertig", close: "Schließen",
+          hint: "Die Einstellungen findest du in der linken Seitenleiste unter „VikTempest Seanime UI“. Fehlt der Eintrag direkt nach der Installation, lade Seanime einmal neu (Strg+R)." },
     en: { title: "Which colour scheme do you want?", intro: "One click changes the colours right away. You can change it any time on the \"VikTempest Seanime UI\" page in the sidebar.",
-          red: "Red", purple: "Purple", blue: "Blue", custom: "Custom colours", off: "No theme", accent: "Accent", bg: "Background", done: "Done" },
+          red: "Red", purple: "Purple", blue: "Blue", custom: "Custom colours", off: "No theme", accent: "Accent", bg: "Background", done: "Done", close: "Close",
+          hint: "The settings are in the left sidebar under \"VikTempest Seanime UI\". If the entry is missing right after installing, reload Seanime once (Ctrl+R)." },
 }
 
 const VS_PICKER_HTML = `<!DOCTYPE html>
@@ -433,12 +439,13 @@ const VS_PICKER_HTML = `<!DOCTYPE html>
 <style>
   :root { color-scheme: dark; }
   * { box-sizing: border-box; }
-  html, body { margin: 0; height: 100%; }
-  body { display: flex; align-items: center; justify-content: center; padding: 16px; background: rgba(0,0,0,.72);
-         color: #e5e5e5; font: 15px/1.45 Inter, system-ui, -apple-system, "Segoe UI", sans-serif; }
-  .box { width: 100%; max-width: 720px; max-height: 100%; overflow: auto; background: #141414; border: 1px solid rgba(255,255,255,.1);
-         border-radius: 18px; padding: 24px; box-shadow: 0 20px 60px rgba(0,0,0,.6); }
-  h1 { margin: 0 0 6px; font-size: 1.45rem; color: #fff; }
+  html, body { margin: 0; }
+  body { background: #141414; color: #e5e5e5; font: 15px/1.45 Inter, system-ui, -apple-system, "Segoe UI", sans-serif; }
+  .box { position: relative; padding: 24px; border: 1px solid rgba(255,255,255,.1); border-radius: 18px; }
+  .x { position: absolute; top: 14px; right: 14px; width: 34px; height: 34px; border-radius: 99px; border: 0; cursor: pointer;
+       background: rgba(255,255,255,.08); color: #fff; font-size: 18px; line-height: 34px; }
+  .hint { margin: 14px 0 0; font-size: .85rem; color: #8f8f8f; }
+  h1 { margin: 0 34px 6px 0; font-size: 1.45rem; color: #fff; }
   p { margin: 0 0 20px; color: #a3a3a3; }
   .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 12px; }
   .tile { border: 2px solid rgba(255,255,255,.1); border-radius: 14px; padding: 10px; cursor: pointer; background: transparent;
@@ -469,14 +476,14 @@ const VS_PICKER_HTML = `<!DOCTYPE html>
   }
   function pick() { window.webview.send("pick", { theme: cur, accent: accent, bg: bg }); }
   function render() {
-    var t = d.text, h = "<h1>" + esc(t.title) + "</h1><p>" + esc(t.intro) + "</p><div class='grid'>";
+    var t = d.text, h = "<button class='x' id='x' title='" + esc(t.close) + "'>×</button><h1>" + esc(t.title) + "</h1><p>" + esc(t.intro) + "</p><div class='grid'>";
     ["red", "purple", "blue"].forEach(function (k) { h += tile(k, d.schemes[k].accent, d.schemes[k].bg); });
     h += tile("custom", accent, bg) + tile("off") + "</div>";
     if (cur === "custom") {
       h += "<div class='custom'><label>" + esc(t.accent) + " <input type='color' id='ca' value='" + esc(accent) + "'></label>" +
         "<label>" + esc(t.bg) + " <input type='color' id='cb' value='" + esc(bg) + "'></label></div>";
     }
-    h += "<div class='bar'><button class='done' id='done'>" + esc(t.done) + "</button></div>";
+    h += "<p class='hint'>" + esc(t.hint) + "</p><div class='bar'><button class='done' id='done'>" + esc(t.done) + "</button></div>";
     document.getElementById("app").innerHTML = h;
     Array.prototype.forEach.call(document.querySelectorAll(".tile"), function (b) {
       b.addEventListener("click", function () { cur = b.getAttribute("data-t"); pick(); render(); });
@@ -485,6 +492,7 @@ const VS_PICKER_HTML = `<!DOCTYPE html>
     if (ca) ca.addEventListener("change", function () { accent = ca.value; pick(); render(); });
     if (cb) cb.addEventListener("change", function () { bg = cb.value; pick(); render(); });
     document.getElementById("done").addEventListener("click", function () { window.webview.send("done", {}); });
+    document.getElementById("x").addEventListener("click", function () { window.webview.send("done", {}); });
   }
   function start() {
     if (!window.webview) { setTimeout(start, 100); return; }
@@ -615,14 +623,19 @@ function vsSetupUI(ctx) {
     let asked = false
     try { asked = $storage.get(VS_THEME_ASKED_KEY) === true } catch (e) {}
     if (!asked) {
+        // A window in the middle, not a layer over the whole app: Seanime stays usable around it
+        // even while the plugin is busy (AniList requests block it for a moment).
         const picker = ctx.newWebview({
             slot: "fixed",
             zIndex: 9999,
-            style: "left:0;top:0;width:100vw;height:100vh",
+            autoHeight: true,
+            style: "left:50%;top:50%;transform:translate(-50%,-50%);width:min(720px,calc(100vw - 24px));max-height:calc(100vh - 24px);border-radius:18px;box-shadow:0 20px 60px rgba(0,0,0,.6)",
             window: { frameless: true },
         })
         picker.setContent(() => VS_PICKER_HTML)
         picker.channel.on("ready", () => {
+            // Asked once: even if the window is closed some other way, it doesn't come back
+            try { $storage.set(VS_THEME_ASKED_KEY, true) } catch (e) {}
             const s = vsLoadSettings()
             picker.channel.send("init", {
                 text: VS_PICKER_TEXT[pageLang],
