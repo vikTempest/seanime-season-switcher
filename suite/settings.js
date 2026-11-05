@@ -22,7 +22,7 @@ function vsRegister(name, fn) {
 // The tray icon (top bar) is the way into the settings: Seanime only shows the sidebar entry
 // after the sidebar is loaded again, so after installing it is missing until a reload.
 // A plugin has one tray, so a module that wants its own tray content asks for it here.
-let vsTrayState = { ctx: null, tray: null }
+let vsTrayState = { ctx: null, tray: null, header: null }
 
 // Shared between the parts: extra tray sections, the rating window, whether the colour picker is open
 const vsShare = { traySections: [], rate: null, pickerOpen: false }
@@ -46,15 +46,20 @@ function vsTray(opts) {
     return vsTrayState.tray
 }
 
+// The tray is drawn often: its render function only builds components, everything else
+// (language, click handlers) is prepared once here.
 function vsTrayHeader(tray) {
-    const lang = vsLoadSettings().language === "de" ? "de" : "en"
+    if (!vsTrayState.header) {
+        const lang = vsLoadSettings().language === "de" ? "de" : "en"
+        vsTrayState.header = {
+            label: VS_PAGE_TEXT[lang].openSettings,
+            onClick: vsTrayState.ctx.eventHandler("vs-open-settings", () => vsOpenSettings()),
+        }
+    }
+    const h = vsTrayState.header
     return [
         tray.text("VikTempest Seanime UI", { className: "font-semibold text-lg" }),
-        tray.button(VS_PAGE_TEXT[lang].openSettings, {
-            intent: "primary",
-            size: "sm",
-            onClick: vsTrayState.ctx.eventHandler("vs-open-settings", () => vsOpenSettings()),
-        }),
+        tray.button(h.label, { intent: "primary", size: "sm", onClick: h.onClick }),
     ].concat(vsTraySections(tray))
 }
 
@@ -242,6 +247,7 @@ const VS_CHANGES = {
         "1.1.1: Farbwahl als kleines Fenster mit ×, Seanime bleibt dabei bedienbar; AniList-Anfragen in kleinen Portionen, damit nichts hängt",
         "1.1.2: Das Symbol oben (Tray) hat jetzt den Knopf „Einstellungen öffnen“; „Aktualisieren“ meldet sich, wenn es fertig ist",
         "1.2.0: Extras: Bildschirmschoner, Schlaftimer und Schnellsuche (Strg+K), Hinweis auf neue Staffeln, Filler abdunkeln oder ausblenden, Rechtsklick auf Folgen, Bewerten nach der letzten Folge",
+        "1.2.1: Seanime hängt nicht mehr nach der Installation (Bildschirmschoner-Erkennung), Absturz beim Symbol oben behoben",
     ],
     en: [
         "Colour schemes: red, purple, blue or your own colours, picked on first start",
@@ -252,6 +258,7 @@ const VS_CHANGES = {
         "1.1.1: colour picker is a small window with ×, Seanime stays usable; AniList requests in small batches so nothing hangs",
         "1.1.2: The tray icon at the top now has an \"Open settings\" button; \"Refresh\" tells you when it is done",
         "1.2.0: Extras: screensaver, sleep timer and quick search (Ctrl+K), notice about new seasons, dim or hide filler, right-click on episodes, rating after the last episode",
+        "1.2.1: Seanime no longer hangs after installing (screensaver activity check), fixed a crash in the tray icon",
     ],
 }
 

@@ -17,7 +17,7 @@ import re
 import sys
 
 ROOT = sys.argv[1] if len(sys.argv) > 1 else "."
-VERSION = "1.2.0"
+VERSION = "1.2.1"
 ID = "viktempest-ui"
 ICON = "https://raw.githubusercontent.com/vikTempest/custom-ratings-.5-options/main/icon.png"
 JSON_NAME = "viktempest-ui.json"

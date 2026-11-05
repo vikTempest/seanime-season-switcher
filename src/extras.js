@@ -173,31 +173,22 @@ function init() {
         onVideo("video-completed", () => rate.onCompleted())
 
         // -----------------------------------------------------------------------------------------
-        // Activity: the last time you used the mouse or keyboard in Seanime. Each listener sends
-        // one event and is then off for a while, so moving the mouse doesn't flood the plugin.
+        // Activity: the last time you clicked, typed or scrolled in Seanime. One listener per
+        // event type, added once and never removed: Seanime can't reliably remove DOM listeners,
+        // and mouse movement would send far too many events, so it isn't watched.
 
         let lastActive = Date.now()
-        const ACTIVITY_EVENTS = ["mousemove", "pointerdown", "keydown", "wheel", "touchstart"]
-        const ACTIVITY_PAUSE_MS = 15000
+        const ACTIVITY_EVENTS = ["pointerdown", "keydown", "wheel"]
         let watchedBody = ""
 
         function watchActivity() {
             ctx.dom.queryOne("body").then((body) => {
                 if (!body || body.id === watchedBody) return
                 watchedBody = body.id
-                ACTIVITY_EVENTS.forEach((ev) => {
-                    const arm = () => {
-                        let off = null
-                        off = body.addEventListener(ev, () => {
-                            lastActive = Date.now()
-                            if (typeof off === "function") off()
-                            ctx.setTimeout(arm, ACTIVITY_PAUSE_MS)
-                        })
-                    }
-                    arm()
-                })
+                ACTIVITY_EVENTS.forEach((ev) => body.addEventListener(ev, () => { lastActive = Date.now() }))
             }).catch((e) => console.warn("viktempest-ui extras: activity", e))
         }
+        ctx.screen.onNavigate(() => { lastActive = Date.now() })
         ctx.dom.onMainTabReady(() => { watchedBody = ""; watchActivity() })
         watchActivity()
 
@@ -372,10 +363,13 @@ function init() {
                 else ctx.toast.success(t("sleepSet", this.afterEp ? t("sleepEp") : t("sleepMin", minutes)))
                 trayUpdate()
             },
+            // Used in the tray render: only plain JavaScript there (texts are read once)
+            texts: null,
             label() {
-                if (this.afterEp) return t("sleepAfterEp")
-                if (this.until) return t("sleepLeft", Math.max(1, Math.round((this.until - Date.now()) / 60000)))
-                return t("sleepNone")
+                if (!this.texts) this.texts = { ep: t("sleepAfterEp"), left: t("sleepLeft", "{0}"), none: t("sleepNone") }
+                if (this.afterEp) return this.texts.ep
+                if (this.until) return this.texts.left.split("{0}").join(String(Math.max(1, Math.round((this.until - Date.now()) / 60000))))
+                return this.texts.none
             },
             fire() {
                 this.until = 0
@@ -444,6 +438,7 @@ function init() {
         const SEASON_FORMATS = { TV: 1, TV_SHORT: 1, ONA: 1 }
         let newSeasons = []
         try { newSeasons = ($storage.get(NEW_KEY) || {}).items || [] } catch (e) {}
+        newSeasons.forEach((s) => { s.state = seasonState(s) })
 
         function dateText(d) {
             if (!d || !d.year) return ""
@@ -482,6 +477,7 @@ function init() {
                 })
             })
             newSeasons = Object.keys(found).map((k) => found[k])
+            newSeasons.forEach((s) => { s.state = seasonState(s) })
             try { $storage.set(NEW_KEY, { time: Date.now(), items: newSeasons }) } catch (e) {}
 
             // A message only for seasons you haven't been told about yet
@@ -624,32 +620,44 @@ function init() {
         // Tray: sleep timer, quick search and new seasons below the settings button
 
         if (share.traySections && tray) {
+            // Click handlers are made once: the render function only builds components
+            const ev = {
+                sleep15: ctx.eventHandler("vsx-sleep15", () => sleep.set(15)),
+                sleep30: ctx.eventHandler("vsx-sleep30", () => sleep.set(30)),
+                sleep60: ctx.eventHandler("vsx-sleep60", () => sleep.set(60)),
+                sleepEp: ctx.eventHandler("vsx-sleepEp", () => sleep.set("ep")),
+                sleepOff: ctx.eventHandler("vsx-sleepOff", () => sleep.set(0)),
+                quick: ctx.eventHandler("vsx-quick", () => { if (palette) palette.open() }),
+            }
+            const seasonClicks = {}
+            const seasonClick = (id) => {
+                if (!seasonClicks[id]) seasonClicks[id] = ctx.eventHandler("vsx-new-" + id, () => ctx.screen.navigateTo("/entry", { id: String(id) }))
+                return seasonClicks[id]
+            }
+            const text = {
+                sleepTitle: t("sleepTitle"), sleepEp: t("sleepEp"), sleepOff: t("sleepOff"),
+                quick: t("quick") + " (Ctrl+K)", newTitle: t("newTitle"),
+            }
+            const showNew = pref("newSeasons", "yes") === "yes"
             share.traySections.push((tr) => {
                 const items = []
-                const ev = (key, fn) => ctx.eventHandler("vsx-" + key, fn)
-                items.push(tr.text(t("sleepTitle") + ": " + sleep.label(), { className: "font-semibold" }))
+                items.push(tr.text(text.sleepTitle + ": " + sleep.label(), { className: "font-semibold" }))
                 items.push(tr.flex([
-                    tr.button("15", { size: "sm", intent: "gray-subtle", onClick: ev("sleep15", () => sleep.set(15)) }),
-                    tr.button("30", { size: "sm", intent: "gray-subtle", onClick: ev("sleep30", () => sleep.set(30)) }),
-                    tr.button("60", { size: "sm", intent: "gray-subtle", onClick: ev("sleep60", () => sleep.set(60)) }),
-                    tr.button(t("sleepEp"), { size: "sm", intent: "gray-subtle", onClick: ev("sleepEp", () => sleep.set("ep")) }),
-                    tr.button(t("sleepOff"), { size: "sm", intent: "gray-subtle", onClick: ev("sleepOff", () => sleep.set(0)) }),
+                    tr.button("15", { size: "sm", intent: "gray-subtle", onClick: ev.sleep15 }),
+                    tr.button("30", { size: "sm", intent: "gray-subtle", onClick: ev.sleep30 }),
+                    tr.button("60", { size: "sm", intent: "gray-subtle", onClick: ev.sleep60 }),
+                    tr.button(text.sleepEp, { size: "sm", intent: "gray-subtle", onClick: ev.sleepEp }),
+                    tr.button(text.sleepOff, { size: "sm", intent: "gray-subtle", onClick: ev.sleepOff }),
                 ], { gap: 2 }))
-                if (palette) {
-                    items.push(tr.button(t("quick") + " (Ctrl+K)", { size: "sm", intent: "gray-subtle", onClick: ev("quick", () => palette.open()) }))
-                }
-                if (pref("newSeasons", "yes") === "yes" && newSeasons.length) {
-                    items.push(tr.text(t("newTitle"), { className: "font-semibold" }))
+                if (palette) items.push(tr.button(text.quick, { size: "sm", intent: "gray-subtle", onClick: ev.quick }))
+                if (showNew && newSeasons.length) {
+                    items.push(tr.text(text.newTitle, { className: "font-semibold" }))
                     newSeasons.slice(0, 8).forEach((s) => {
-                        items.push(tr.button(s.title + " · " + seasonState(s), {
-                            size: "sm", intent: "primary-subtle",
-                            onClick: ev("new-" + s.id, () => ctx.screen.navigateTo("/entry", { id: String(s.id) })),
-                        }))
+                        items.push(tr.button(s.title + " · " + s.state, { size: "sm", intent: "primary-subtle", onClick: seasonClick(s.id) }))
                     })
                 }
                 return items
             })
-            trayUpdate()
         }
 
         // -----------------------------------------------------------------------------------------
