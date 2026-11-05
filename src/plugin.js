@@ -703,15 +703,18 @@ function init() {
         const episodes = { done: {} }
 
         // Seanime only picks the view (episode list, online streaming, ...) when an anime page
-        // opens, so to switch it the plugin leaves the page for a moment (via the home page, so the
-        // back button leads there) and comes back with the view in the address
+        // opens or its id in the address changes. Plugins can't leave to the home page
+        // (navigateTo ignores "/"), so the plugin briefly opens the same anime as "0<id>"
+        // (Seanime reads it as the same number) and then the real id with the view in the
+        // address. The back button then leads to the anime's info page.
         function reopenEntry(mediaId, params) {
-            ctx.screen.navigateTo("/")
+            const id = String(mediaId)
+            ctx.screen.navigateTo("/entry", { id: "0" + id, tab: INFO_TAB })
             ctx.setTimeout(() => {
-                const q = { id: String(mediaId) }
+                const q = { id: id }
                 Object.keys(params).forEach((k) => q[k] = String(params[k]))
                 ctx.screen.navigateTo("/entry", q)
-            }, 60)
+            }, 150)
         }
 
         function playEpisode(mediaId, episodeNumber) {
@@ -834,10 +837,7 @@ function init() {
             if (tab) return false
             if (prevSame) {
                 // Back button from the info page: don't bounce back into it
-                if (prev.tab === INFO_TAB) {
-                    ctx.screen.navigateTo("/")
-                    return true
-                }
+                if (prev.tab === INFO_TAB) return false
                 // Seanime removes ?episode=… from the address once the stream plays
                 return false
             }
@@ -885,7 +885,7 @@ function init() {
             const prev = state.loc
             state.loc = {
                 pathname: pathname,
-                id: String((searchParams && searchParams.id) || ""),
+                id: String(parseInt(String((searchParams && searchParams.id) || ""), 10) || ""),
                 tab: String((searchParams && searchParams.tab) || ""),
             }
             if (pathname === "/entry" && state.loc.id !== state.reopened) state.reopened = ""
