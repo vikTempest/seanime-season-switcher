@@ -8,7 +8,15 @@ Das gilt auch für die anderen Zeilen der Startseite, z. B. Genre-Zeilen wie „
 
 Deine Listen bleiben unverändert: Jede Staffel bleibt auf AniList ein eigener Eintrag, das Plugin ändert nichts an deinem Konto.
 
-**Infoseite:** Klickst du auf eine Serie, öffnet sich die Seite mit Infos und allen Folgen (Bild, Titel, Beschreibung), statt sofort einen Stream zu laden. Die Quellen-Umschaltung (Local library, Online streaming usw.) blendet das Plugin aus. Erst ein Klick auf eine Folge startet den Online-Stream genau dieser Folge. Dafür springt die Seite einmal kurz über die Startseite, weil Seanime die Ansicht nur beim Öffnen einer Seite wählt. Mit „Zurück“ landest du danach auf der Startseite. Eine Einstellung in Seanime musst du dafür nicht ändern.
+**Infoseite:** Klickst du auf eine Serie, öffnet sich die Seite mit Infos und allen Folgen (Bild, Titel, Beschreibung), statt sofort einen Stream zu laden. Die Quellen-Umschaltung (Local library, Online streaming usw.) blendet das Plugin aus. Erst ein Klick auf eine Folge startet den Online-Stream genau dieser Folge. Dafür springt die Seite einmal kurz über die Startseite, weil Seanime die Ansicht nur beim Öffnen einer Seite wählt. Mit „Zurück“ landest du danach auf der Startseite. Beim ersten Start fragt Seanime einmal, ob das Plugin die Einstellung „Default episode source“ auf den Folgen-Tab setzen darf. Erlaubst du das, öffnet jede Anime-Seite direkt mit der Folgenliste, ohne Umweg und Flackern. Lehnst du ab, versucht das Plugin es weiter über den Umweg über die Startseite.
+
+Im Folgen-Tab fehlt die große „Weiterschauen“-Reihe oben. Gesehene Folgen bekommen ein kleines „✓ Gesehen“, die zuletzt angefangene Folge einen Fortschrittsbalken mit den geschauten Minuten, alle anderen nichts.
+
+## Auf dem Handy
+
+Das Plugin läuft auf dem Seanime-Server, also funktioniert es automatisch auch, wenn du Seanime im Handy-Browser öffnest. Du musst auf dem Handy nichts extra installieren oder einstellen. Das Staffel-Dropdown steht dort mittig unter dem Titel, nutzt die ganze Breite und ist groß genug zum Tippen (iPhones zoomen beim Antippen nicht mehr rein). Auf die Folgenbilder und -titel kannst du tippen, um den Stream zu starten.
+
+Das Plugin hat einen gemeinsamen Zustand für alle Geräte. Springt eine Seite unerwartet, während Seanime gleichzeitig auf PC und Handy offen ist, schließ Seanime auf dem Gerät, das du gerade nicht nutzt.
 
 ## Wie die Staffeln gefunden werden
 

@@ -48,10 +48,10 @@ function init() {
                 // Relations (PREQUEL/SEQUEL) of every id, cached for 12 hours and fetched 50 at a time
                 const CACHE_MS = 12 * 60 * 60 * 1000
                 const rel = {}
-                // Three rounds, so seasons are also connected through entries that are not shown here
+                // Several rounds, so seasons are also connected through entries that are not shown here
                 // (e.g. Season 1 and 3 in this section, Season 2 somewhere else or not on your list)
                 let wanted = ids.slice()
-                for (let round = 0; round < 3 && wanted.length; round++) {
+                for (let round = 0; round < 8 && wanted.length; round++) {
                     const missing = []
                     wanted.forEach((id) => {
                         if (rel[id]) return
@@ -187,6 +187,9 @@ function init() {
                 current: "aktuell",
                 formats: { MOVIE: "Film", OVA: "OVA", ONA: "ONA", SPECIAL: "Special", TV_SHORT: "Kurzserie", MUSIC: "Musik" },
                 episodesTab: "Folgen",
+                watched: "✓ Gesehen",
+                minutes: "{0} min geschaut",
+                defaultSet: "Season Switcher: Anime-Seiten öffnen ab jetzt mit der Folgenliste.",
             },
             en: {
                 label: "Season",
@@ -194,6 +197,9 @@ function init() {
                 current: "current",
                 formats: { MOVIE: "Movie", OVA: "OVA", ONA: "ONA", SPECIAL: "Special", TV_SHORT: "Short", MUSIC: "Music" },
                 episodesTab: "Episodes",
+                watched: "✓ Watched",
+                minutes: "{0} min watched",
+                defaultSet: "Season Switcher: anime pages now open on the episode list.",
             },
         }
         const lang = I18N[pref("language", "de")] ? pref("language", "de") : "de"
@@ -365,18 +371,16 @@ function init() {
                     if (!title || state.mediaId !== mediaId) return
                     return ctx.dom.createElement("div").then((wrap) => {
                         const optionsHtml = options.map((o) =>
-                            "<option value=\"" + o.id + "\"" + (o.id === mediaId ? " selected" : "") +
-                            " style=\"background:#151515;color:#fff\">" + escapeHtml(o.label) + "</option>",
+                            "<option value=\"" + o.id + "\"" + (o.id === mediaId ? " selected" : "") + ">" +
+                            escapeHtml(o.label) + "</option>",
                         ).join("")
                         wrap.setAttribute("class", "vtss-switcher")
                         wrap.setAttribute("data-media-id", String(mediaId))
-                        wrap.setCssText("display:flex;align-items:center;gap:.6rem;flex-wrap:wrap;margin-top:.75rem;")
+                        // Layout and sizes (phone and desktop) come from the plugin's style sheet
+                        ensureStyle()
                         wrap.setInnerHTML(
-                            "<span style=\"color:var(--muted, #a1a1aa);font-weight:600;font-size:.95rem\">" + escapeHtml(t("label")) + "</span>" +
-                            "<select class=\"vtss-select\" style=\"color-scheme:dark;background:rgba(0,0,0,.45);color:#fff;" +
-                            "border:1px solid rgba(255,255,255,.18);border-radius:.6rem;padding:.4rem 2rem .4rem .75rem;" +
-                            "font-size:.95rem;font-weight:600;max-width:min(90vw,32rem);cursor:pointer;backdrop-filter:blur(6px)\">" +
-                            optionsHtml + "</select>",
+                            "<span class=\"vtss-label\">" + escapeHtml(t("label")) + "</span>" +
+                            "<select class=\"vtss-select\">" + optionsHtml + "</select>",
                         )
                         title.after(wrap)
                         return wrap.queryOne("select").then((select) => {
@@ -411,7 +415,7 @@ function init() {
             const REL_CACHE_MS = 12 * 60 * 60 * 1000
             const rel = {}
             let wanted = ids.slice()
-            for (let round = 0; round < 3 && wanted.length; round++) {
+            for (let round = 0; round < 8 && wanted.length; round++) {
                 const missing = []
                 wanted.forEach((id) => {
                     if (rel[id]) return
@@ -607,6 +611,35 @@ function init() {
             })
         }
 
+        // Episodes tab: no big "continue watching" carousel above the list, watched episodes keep
+        // their picture but get a small check mark, and the last started episode a progress bar
+        const TAB_VIEW = "[data-anime-entry-page-plugin-episode-tab-view]"
+        const EPISODES_CSS = " " + TAB_VIEW + " :has(> * [data-episode-card]):not(:has([data-episode-list-grid])) { display: none !important; }" +
+            " " + TAB_VIEW + " [data-episode-grid-item][data-is-watched=\"true\"] .opacity-25 { opacity: .55 !important; }" +
+            " .vtss-watched { position: absolute; top: .35rem; left: .35rem; z-index: 4; padding: .1rem .45rem; border-radius: .4rem;" +
+            " background: rgba(0,0,0,.7); color: #fff; font-size: .75rem; font-weight: 600; pointer-events: none; }" +
+            " .vtss-progress { position: absolute; left: 0; right: 0; bottom: 0; z-index: 4; height: 4px; background: rgba(255,255,255,.2); pointer-events: none; }" +
+            " .vtss-progress > div { height: 100%; background: var(--brand, #e50914); }" +
+            " .vtss-progress-label { position: absolute; bottom: .4rem; right: .35rem; z-index: 4; padding: .1rem .45rem; border-radius: .4rem;" +
+            " background: rgba(0,0,0,.7); color: #fff; font-size: .75rem; font-weight: 600; pointer-events: none; }"
+
+        // Season dropdown. On phones (below 1024px, where Seanime centers the title) it is centered,
+        // fills the width and uses 16px text so iOS does not zoom in when it is tapped.
+        const SWITCHER_CSS = " .vtss-switcher { display: flex; align-items: center; justify-content: center; gap: .6rem;" +
+            " margin-top: .75rem; width: 100%; }" +
+            " .vtss-label { flex: none; color: var(--muted, #a1a1aa); font-weight: 600; font-size: .95rem; }" +
+            " .vtss-select { flex: 1 1 auto; min-width: 0; max-width: 32rem; min-height: 44px; color-scheme: dark;" +
+            " background: rgba(0,0,0,.45); color: #fff; border: 1px solid rgba(255,255,255,.18); border-radius: .6rem;" +
+            " padding: .4rem 2rem .4rem .75rem; font-size: 16px; font-weight: 600; cursor: pointer;" +
+            " text-overflow: ellipsis; white-space: nowrap; overflow: hidden; backdrop-filter: blur(6px); }" +
+            " .vtss-select option { background: #151515; color: #fff; }" +
+            " @media (min-width: 1024px) { .vtss-switcher { justify-content: flex-start; width: auto; }" +
+            " .vtss-select { flex: 0 1 auto; min-height: 0; font-size: .95rem; } }" +
+            // Play symbol on episode pictures and tappable titles
+            " .vtss-play { position: absolute; inset: 0; z-index: 3; display: flex; align-items: center; justify-content: center;" +
+            " pointer-events: none; font-size: 2rem; color: #fff; text-shadow: 0 2px 10px rgba(0,0,0,.8); opacity: .85; }" +
+            " .vtss-tap { cursor: pointer; -webkit-tap-highlight-color: transparent; touch-action: manipulation; }"
+
         function ensureStyle() {
             if (rows.styled) return
             rows.styled = true
@@ -626,7 +659,9 @@ function init() {
                         "[data-media-entry-card-body-missing-episodes-badge-container]",
                         "[data-media-entry-card-body-progress-bar-container]",
                     ].map((sel) => ".vtss-swapped " + sel).join(", ") + " { display: none !important; }" +
-                        (forceInfo ? " [data-anime-entry-page-tabs-container] { display: none !important; }" : ""))
+                        (forceInfo ? " [data-anime-entry-page-tabs-container] { display: none !important; }" : "") +
+                        EPISODES_CSS +
+                        SWITCHER_CSS)
                     body.append(style)
                 })
             }).catch(() => {
@@ -681,6 +716,28 @@ function init() {
         const INFO_TAB = "ext:viktempest-season-switcher"
         const forceInfo = pref("infoPage", "yes") === "yes"
 
+        // The reliable way: make the Episodes tab Seanime's "Default episode source". Seanime asks
+        // you once to allow it. Afterwards the plugin doesn't need to redirect pages anymore.
+        // If you change the setting back later, the plugin leaves it alone.
+        function storageGet(key) {
+            try { return $storage.get(key) } catch (e) { return undefined }
+        }
+        function storageSet(key, value) {
+            try { $storage.set(key, value) } catch (e) {}
+        }
+        const defaultSource = { set: storageGet("vtss:defaultSourceSet") === true }
+        if (forceInfo && !defaultSource.set && ctx.appSettings && ctx.appSettings.set) {
+            ctx.setTimeout(() => {
+                Promise.resolve(ctx.appSettings.set("library.defaultPlaybackSource", INFO_TAB))
+                    .then(() => {
+                        defaultSource.set = true
+                        storageSet("vtss:defaultSourceSet", true)
+                        ctx.toast.success(t("defaultSet"))
+                    })
+                    .catch((e) => console.warn("season-switcher: could not set the default episode source", e))
+            }, 1500)
+        }
+
         ctx.anime.registerEntryEpisodeTab({
             name: t("episodesTab"),
             icon: "<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='currentColor' width='18' height='18'><path d='M4 5h16v2H4zm0 6h10v2H4zm0 6h10v2H4zm13-5 5 3.5-5 3.5z'/></svg>",
@@ -690,9 +747,57 @@ function init() {
             },
         })
 
+        // Watched mark and progress on the episodes in the Episodes tab
+        const TAB_EPISODE = TAB_VIEW + " [data-episode-grid-item][data-episode-number]"
+        const marks = { done: {} }
+
+        function markEpisode(item) {
+            const attrs = item.attributes || {}
+            const watched = attrs["data-is-watched"] === "true"
+            const key = item.id + ":" + watched
+            if (marks.done[key]) return
+            marks.done[key] = true
+            const mediaId = parseInt(String(attrs["data-media-id"] || state.mediaId || ""), 10)
+            const episodeNumber = parseInt(String(attrs["data-episode-number"] || ""), 10)
+
+            let progress = null
+            if (!watched && mediaId && episodeNumber) {
+                try {
+                    const h = ctx.continuity.getWatchHistoryItem(mediaId)
+                    if (h && h.episodeNumber === episodeNumber && h.currentTime > 30 && h.duration > 0) progress = h
+                }
+                catch (e) {}
+            }
+
+            item.queryOne("[data-episode-grid-item-image-container]").then((image) => {
+                if (!image) return
+                return image.query(".vtss-watched, .vtss-progress, .vtss-progress-label").then((old) => {
+                    ;(old || []).forEach((el) => el.remove())
+                    if (watched) {
+                        return ctx.dom.createElement("div").then((badge) => {
+                            badge.setAttribute("class", "vtss-watched")
+                            badge.setText(t("watched"))
+                            image.append(badge)
+                        })
+                    }
+                    if (progress) {
+                        const pct = Math.max(2, Math.min(100, Math.round(progress.currentTime / progress.duration * 100)))
+                        return Promise.all([ctx.dom.createElement("div"), ctx.dom.createElement("div")]).then((els) => {
+                            els[0].setAttribute("class", "vtss-progress")
+                            els[0].setInnerHTML("<div style=\"width:" + pct + "%\"></div>")
+                            els[1].setAttribute("class", "vtss-progress-label")
+                            els[1].setText(t("minutes", Math.max(1, Math.round(progress.currentTime / 60))))
+                            image.append(els[0])
+                            image.append(els[1])
+                        })
+                    }
+                })
+            }).catch(() => {})
+        }
+
         // Returns true when the page is being replaced
         function routeToInfoPage(pathname, params, prev) {
-            if (!forceInfo || pathname !== "/entry") return false
+            if (!forceInfo || defaultSource.set || pathname !== "/entry") return false
             const id = String((params && params.id) || "")
             if (!id) return false
             const tab = String((params && params.tab) || "")
@@ -716,7 +821,7 @@ function init() {
         const ONLINE_VIEW = "[data-anime-entry-page-online-streaming-view]"
         function checkOnlineView() {
             const loc = state.loc
-            if (!forceInfo || !loc || loc.pathname !== "/entry" || loc.tab !== INFO_TAB) return
+            if (!forceInfo || defaultSource.set || !loc || loc.pathname !== "/entry" || loc.tab !== INFO_TAB) return
             if (state.reopened === loc.id) return
             state.reopened = loc.id
             reopenEntry(loc.id, { tab: INFO_TAB })
@@ -732,19 +837,17 @@ function init() {
             const onClick = () => playEpisode(mediaId, episodeNumber)
             item.queryOne("[data-episode-grid-item-image-container]").then((image) => {
                 if (!image) return
-                image.setStyle("cursor", "pointer")
+                image.addClass("vtss-tap")
                 image.addEventListener("click", onClick)
                 return ctx.dom.createElement("div").then((overlay) => {
                     overlay.setAttribute("class", "vtss-play")
-                    overlay.setCssText("position:absolute;inset:0;z-index:3;display:flex;align-items:center;justify-content:center;" +
-                        "pointer-events:none;font-size:2rem;color:#fff;text-shadow:0 2px 10px rgba(0,0,0,.8);opacity:.85")
                     overlay.setText("▶")
                     image.append(overlay)
                 })
             }).catch(() => {})
             item.queryOne("[data-episode-grid-item-title]").then((title) => {
                 if (!title) return
-                title.setStyle("cursor", "pointer")
+                title.addClass("vtss-tap")
                 title.addEventListener("click", onClick)
             }).catch(() => {})
         }
@@ -773,6 +876,7 @@ function init() {
                 rows.parents = {}
                 rows.swapped = {}
                 episodes.done = {}
+                marks.done = {}
                 scheduleMergeRows()
             }
             const id = pathname === "/entry" ? parseInt(String((searchParams && searchParams.id) || ""), 10) : 0
@@ -807,10 +911,13 @@ function init() {
                 if (pref("episodeClick", "yes") !== "yes") return
                 ;(elements || []).forEach(setupEpisode)
             })
+            ctx.dom.observe(TAB_EPISODE, (elements) => {
+                ;(elements || []).forEach(markEpisode)
+            })
             ctx.dom.observe(ONLINE_VIEW, (elements) => {
                 if (elements && elements.length) checkOnlineView()
             })
-            if (forceInfo) ensureStyle()
+            ensureStyle()
             // Cards on the home page appear while rows load and scroll into view
             ctx.dom.observe(CARD, () => scheduleMergeRows())
             ctx.screen.onNavigate((e) => onPage(e.pathname, e.searchParams))
