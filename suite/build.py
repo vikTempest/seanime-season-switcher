@@ -4,6 +4,7 @@ Usage (from the repository root):  python3 suite/build.py .
 
 Sources:
   src/plugin.js               Season Switcher
+  src/extras.js               Extras (screensaver, sleep timer, new seasons, filler, quick search, ...)
   suite/ratings/plugin.js     AniList Custom Ratings (copy of the plugin from custom-ratings-.5-options)
   suite/theme/*.css           Netflix theme (desktop and mobile), turned into a theme for any colour scheme
   suite/settings.js           settings page, colour schemes, first-start picker, module loader
@@ -16,7 +17,7 @@ import re
 import sys
 
 ROOT = sys.argv[1] if len(sys.argv) > 1 else "."
-VERSION = "1.1.2"
+VERSION = "1.2.0"
 ID = "viktempest-ui"
 ICON = "https://raw.githubusercontent.com/vikTempest/custom-ratings-.5-options/main/icon.png"
 JSON_NAME = "viktempest-ui.json"
@@ -82,6 +83,7 @@ switcher_fn, switcher_hooks, switcher_ui = module("src/plugin.js", "switcher", [
     ('"ext:viktempest-season-switcher"', '"ext:%s"' % ID),
 ])
 ratings_fn, ratings_hooks, ratings_ui = module("suite/ratings/plugin.js", "ratings")
+extras_fn, extras_hooks, extras_ui = module("src/extras.js", "extras")
 
 
 
@@ -131,6 +133,8 @@ ui_callback = "\n".join([
     "",
     indent(ratings_ui.strip()),
     "",
+    indent(extras_ui.strip()),
+    "",
     "    vsSetupUI(ctx)",
     "}",
 ])
@@ -146,11 +150,13 @@ payload = "\n".join([
     "",
     switcher_hooks,
     ratings_hooks,
+    extras_hooks,
     "// " + "=" * 97,
     "",
     "function init() {",
     "    " + switcher_fn + "()",
     "    " + ratings_fn + "()",
+    "    " + extras_fn + "()",
     "    $ui.register(" + ui_callback + ")",
     "}",
     "",
@@ -164,12 +170,12 @@ m = {
     "website": "https://github.com/vikTempest/vikTempest-Seanime-UI",
     "language": "javascript",
     "type": "plugin",
-    "description": "Season Switcher, AniList Custom Ratings and a theme with colour schemes (red, purple, blue or your own) in one extension. "
+    "description": "Season Switcher, AniList Custom Ratings, extras (screensaver, sleep timer, quick search) and a theme with colour schemes (red, purple, blue or your own) in one extension. "
                    "All settings are on the \"VikTempest Seanime UI\" page in the sidebar. Languages: Deutsch, English, Español, Português, 日本語.",
     "author": "Vik",
     "icon": ICON,
     "lang": "multi",
-    "plugin": {"version": "1", "permissions": {"scopes": ["anilist", "anilist-token", "database", "settings", "storage"]}},
+    "plugin": {"version": "1", "permissions": {"scopes": ["anilist", "anilist-token", "database", "playback", "settings", "storage"]}},
     "payload": payload,
 }
 with open(ROOT + "/" + JSON_NAME, "w", encoding="utf8") as f:

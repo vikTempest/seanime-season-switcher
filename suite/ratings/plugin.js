@@ -1705,6 +1705,9 @@ function init() {
         addButtons("ANIME")
         addButtons("MANGA")
 
+        // Lets VikTempest Seanime UI open the rating window (e.g. after the last episode)
+        if (typeof vsShare === "object" && vsShare) vsShare.rate = (media) => openFor(media, "ANIME", "rating")
+
         // -----------------------------------------------------------------------------------------
         // Tray icon: shows that the plugin is running, how to use it and whether your account is ready
 

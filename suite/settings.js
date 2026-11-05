@@ -24,6 +24,9 @@ function vsRegister(name, fn) {
 // A plugin has one tray, so a module that wants its own tray content asks for it here.
 let vsTrayState = { ctx: null, tray: null }
 
+// Shared between the parts: extra tray sections, the rating window, whether the colour picker is open
+const vsShare = { traySections: [], rate: null, pickerOpen: false }
+
 function vsOpenSettings() {
     try { vsTrayState.ctx.screen.navigateTo("/webview", { id: VS_EXT_ID }) }
     catch (e) { console.warn("viktempest-ui: could not open settings", e) }
@@ -52,7 +55,15 @@ function vsTrayHeader(tray) {
             size: "sm",
             onClick: vsTrayState.ctx.eventHandler("vs-open-settings", () => vsOpenSettings()),
         }),
-    ]
+    ].concat(vsTraySections(tray))
+}
+
+function vsTraySections(tray) {
+    let out = []
+    vsShare.traySections.forEach((fn) => {
+        try { out = out.concat(fn(tray) || []) } catch (e) { console.warn("viktempest-ui: tray section", e) }
+    })
+    return out
 }
 
 // Modules call this when they find a part of Seanime's page they work with, so the settings page
@@ -157,6 +168,8 @@ const VS_FIELDS = [
               hint: { de: "Staffeln zusammenfassen, Staffel-Dropdown, Folgenliste", en: "Merge seasons, season dropdown, episode list" } },
             { key: "mod_ratings", restart: true, default: "on", label: { de: "AniList Custom Ratings", en: "AniList Custom Ratings" }, onOff: true,
               hint: { de: "Bewertungskategorien und Custom Lists", en: "Rating categories and custom lists" } },
+            { key: "mod_extras", restart: true, default: "on", label: { de: "Extras", en: "Extras" }, onOff: true,
+              hint: { de: "Bildschirmschoner, Schlaftimer, neue Staffeln, Filler, Schnellsuche", en: "Screensaver, sleep timer, new seasons, filler, quick search" } },
         ],
     },
     {
@@ -195,6 +208,27 @@ const VS_FIELDS = [
               hint: { de: "0,5 und 0,1 brauchen auf AniList das Scoring System „10 Point Decimal“.", en: "0.5 and 0.1 need the \"10 Point Decimal\" scoring system on AniList." } },
         ],
     },
+    {
+        section: "extras", fields: [
+            { key: "screensaver", default: "yes", label: { de: "Bildschirmschoner", en: "Screensaver" }, yesNo: true,
+              hint: { de: "Zeigt die Anime aus dem großen Banner der Startseite, wenn du eine Weile nichts machst. Nie während ein Video läuft.",
+                      en: "Shows the anime of the big home page banner when you're away for a while. Never while a video plays." } },
+            { key: "screensaverMinutes", default: "5", label: { de: "Bildschirmschoner nach", en: "Screensaver after" }, showIf: ["screensaver", "yes"],
+              options: [["1", "1 min"], ["3", "3 min"], ["5", "5 min"], ["10", "10 min"], ["15", "15 min"], ["30", "30 min"]] },
+            { key: "newSeasons", default: "yes", label: { de: "Hinweis auf neue Staffeln", en: "Notice about new seasons" }, yesNo: true,
+              hint: { de: "Einmal am Tag: Fortsetzungen von Anime auf deiner Liste, die noch nicht auf der Liste sind. Steht auch im Symbol oben.",
+                      en: "Once a day: sequels of anime on your list that aren't on it yet. Also shown in the icon at the top." } },
+            { key: "filler", default: "normal", label: { de: "Filler-Folgen", en: "Filler episodes" },
+              options: [["normal", { de: "Normal", en: "Normal" }], ["dim", { de: "Abdunkeln", en: "Dim" }], ["hide", { de: "Ausblenden", en: "Hide" }]],
+              hint: { de: "Folgen, die Seanime als Filler kennt.", en: "Episodes Seanime knows as filler." } },
+            { key: "rateAfter", default: "yes", label: { de: "Nach der letzten Folge einer Staffel zum Bewerten fragen", en: "Ask for a rating after the last episode of a season" }, yesNo: true,
+              hint: { de: "Öffnet das Bewertungsfenster von AniList Custom Ratings, wenn der Player nach der letzten Folge stoppt.", en: "Opens the AniList Custom Ratings window when the player stops after the last episode." } },
+            { key: "episodeMenu", restart: true, default: "yes", label: { de: "Rechtsklick-Menü auf Folgen", en: "Right-click menu on episodes" }, yesNo: true,
+              hint: { de: "„Bis hier als gesehen markieren“ und „Online-Stream starten“", en: "\"Mark watched up to here\" and \"Start online stream\"" } },
+            { key: "quickSearch", restart: true, default: "yes", label: { de: "Schnellsuche mit Strg+K", en: "Quick search with Ctrl+K" }, yesNo: true,
+              hint: { de: "Deine Liste und Aktionen wie Schlaftimer. Auch über das Symbol oben.", en: "Your list and actions like the sleep timer. Also from the icon at the top." } },
+        ],
+    },
 ]
 
 // What changed in this version, shown at the bottom of the settings page
@@ -207,6 +241,7 @@ const VS_CHANGES = {
         "Status-Bereich zeigt, ob nach einem Seanime-Update noch alles gefunden wird",
         "1.1.1: Farbwahl als kleines Fenster mit ×, Seanime bleibt dabei bedienbar; AniList-Anfragen in kleinen Portionen, damit nichts hängt",
         "1.1.2: Das Symbol oben (Tray) hat jetzt den Knopf „Einstellungen öffnen“; „Aktualisieren“ meldet sich, wenn es fertig ist",
+        "1.2.0: Extras: Bildschirmschoner, Schlaftimer und Schnellsuche (Strg+K), Hinweis auf neue Staffeln, Filler abdunkeln oder ausblenden, Rechtsklick auf Folgen, Bewerten nach der letzten Folge",
     ],
     en: [
         "Colour schemes: red, purple, blue or your own colours, picked on first start",
@@ -216,6 +251,7 @@ const VS_CHANGES = {
         "Status section shows whether everything is still found after a Seanime update",
         "1.1.1: colour picker is a small window with ×, Seanime stays usable; AniList requests in small batches so nothing hangs",
         "1.1.2: The tray icon at the top now has an \"Open settings\" button; \"Refresh\" tells you when it is done",
+        "1.2.0: Extras: screensaver, sleep timer and quick search (Ctrl+K), notice about new seasons, dim or hide filler, right-click on episodes, rating after the last episode",
     ],
 }
 
@@ -250,7 +286,7 @@ const VS_PAGE_TEXT = {
     de: {
         title: "VikTempest Seanime UI",
         intro: "Alle Einstellungen für Season Switcher, AniList Custom Ratings und das Theme.",
-        general: "Allgemein", theme: "Theme", switcher: "Season Switcher", ratings: "AniList Custom Ratings",
+        general: "Allgemein", theme: "Theme", switcher: "Season Switcher", ratings: "AniList Custom Ratings", extras: "Extras",
         status: "Status", news: "Neu in dieser Version",
         on: "An", off: "Aus", yes: "Ja", no: "Nein",
         save: "Speichern", saved: "Gespeichert.", reset: "Auf Standard zurücksetzen",
@@ -273,7 +309,7 @@ const VS_PAGE_TEXT = {
     en: {
         title: "VikTempest Seanime UI",
         intro: "All settings for Season Switcher, AniList Custom Ratings and the theme.",
-        general: "General", theme: "Theme", switcher: "Season Switcher", ratings: "AniList Custom Ratings",
+        general: "General", theme: "Theme", switcher: "Season Switcher", ratings: "AniList Custom Ratings", extras: "Extras",
         status: "Status", news: "New in this version",
         on: "On", off: "Off", yes: "Yes", no: "No",
         save: "Save", saved: "Saved.", reset: "Reset to defaults",
@@ -396,7 +432,7 @@ const VS_PAGE_HTML = `<!DOCTYPE html>
       "<p class='intro'>" + esc(text.intro) + "</p>";
     (data.warnings || []).forEach(function (w) { h += "<div class='warn'>" + esc(w) + "</div>"; });
     fields.forEach(function (sec) {
-      var off = (sec.section === "switcher" && values.mod_switcher === "off") || (sec.section === "ratings" && values.mod_ratings === "off");
+      var off = values["mod_" + sec.section] === "off";
       h += "<div class='card" + (off ? " off" : "") + "'><h2>" + esc(text[sec.section]) + "</h2>";
       if (off) h += "<p class='note'>" + esc(text.disabled) + "</p>";
       sec.fields.forEach(function (f) {
@@ -672,6 +708,7 @@ function vsSetupUI(ctx) {
             style: "left:50%;top:50%;transform:translate(-50%,-50%);width:min(720px,calc(100vw - 24px));max-height:calc(100vh - 24px);border-radius:18px;box-shadow:0 20px 60px rgba(0,0,0,.6)",
             window: { frameless: true },
         })
+        vsShare.pickerOpen = true
         picker.setContent(() => VS_PICKER_HTML)
         picker.channel.on("ready", () => {
             // Asked once: even if the window is closed some other way, it doesn't come back
@@ -698,6 +735,7 @@ function vsSetupUI(ctx) {
         })
         picker.channel.on("done", () => {
             try { $storage.set(VS_THEME_ASKED_KEY, true) } catch (e) {}
+            vsShare.pickerOpen = false
             picker.close()
         })
     }

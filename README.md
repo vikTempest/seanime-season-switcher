@@ -5,6 +5,7 @@ Eine Erweiterung für Seanime mit allem drin:
 - **Season Switcher:** Staffeln zusammenfassen, Staffel-Dropdown mit Fortschritt, Folgenliste statt Sofort-Stream
 - **AniList Custom Ratings:** Bewertungskategorien und Custom Lists
 - **Theme:** schwarzer Netflix-Look in Rot, Lila, Blau oder deinen eigenen Farben
+- **Extras:** Bildschirmschoner, Schlaftimer, Schnellsuche (Strg+K), Hinweis auf neue Staffeln, Filler abdunkeln, Rechtsklick auf Folgen, Bewerten nach der letzten Folge
 
 Sprachen: Deutsch, English, Español, Português, 日本語
 
@@ -16,7 +17,7 @@ In Seanime unter **Extensions** auf „Add extensions“ klicken und unter „In
 https://raw.githubusercontent.com/vikTempest/vikTempest-Seanime-UI/main/viktempest-ui.json
 ```
 
-Danach die Erweiterung aktivieren und die Berechtigungen bestätigen (AniList, AniList-Token, Datenbank, Einstellungen, Speicher).
+Danach die Erweiterung aktivieren und die Berechtigungen bestätigen (AniList, AniList-Token, Datenbank, Wiedergabe, Einstellungen, Speicher). „Wiedergabe“ braucht der Schlaftimer zum Pausieren und der Bildschirmschoner, damit er nie über einem laufenden Video erscheint..
 
 Beim ersten Start passieren zwei Dinge:
 
@@ -36,6 +37,7 @@ Alle Einstellungen stehen auf einer eigenen Seite. So kommst du hin:
 - **Allgemein:** Sprache und jeden Teil einzeln an/aus
 - **Season Switcher:** Titel-Sprache, Filme/OVAs im Dropdown, Fortschritt im Dropdown, Staffeln zusammenfassen, welche Karte pro Serie, Abzeichen „X Staffeln“, Folgenliste statt Sofort-Stream, Folge anklicken startet Stream
 - **AniList Custom Ratings:** Schrittweite der Pfeiltasten
+- **Extras:** Bildschirmschoner an/aus und nach wie vielen Minuten, Hinweis auf neue Staffeln, Filler-Folgen (normal, abdunkeln, ausblenden), Bewerten nach der letzten Folge, Rechtsklick-Menü, Schnellsuche
 
 Die meisten Einstellungen gelten sofort nach dem Speichern, spätestens beim nächsten Seitenwechsel. Nur die mit „nach Neustart“ markierten (Sprache, Teile an/aus, Folgenliste) brauchen einen Neustart von Seanime, weil sich ein Plugin nicht selbst neu laden kann. „Auf Standard zurücksetzen“ stellt alles auf den Anfang.
 
@@ -63,6 +65,22 @@ Die Erweiterung folgt auf AniList den Verknüpfungen „Prequel“ und „Sequel
 
 Die Daten werden 12 Stunden zwischengespeichert, weil AniList nur wenige Anfragen pro Minute erlaubt. Ist das Limit doch einmal erreicht, zeigt Seanime eine kurze Meldung, und die Staffeln kommen etwa eine Minute später.
 
+## Extras
+
+**Bildschirmschoner:** Machst du eine Weile nichts (Standard 5 Minuten), zeigt Seanime die Anime aus dem großen Banner der Startseite (gerade beliebt auf AniList) bildschirmfüllend mit Titel, Beschreibung und Uhr. Mit „Ansehen“ öffnest du den gezeigten Anime, mit dem Knopf unten in der Mitte (oder Esc) kommst du zurück. Während ein Video läuft, kommt er nie. Ist AniList nicht erreichbar, zeigt er Anime von deiner Liste.
+
+**Symbol oben:** Neben „Einstellungen öffnen“ und den Custom-Ratings-Infos stehen dort der **Schlaftimer** (15, 30, 60 Minuten oder „Nach dieser Folge“, danach pausiert der Player), die Schnellsuche und die neuen Staffeln.
+
+**Neue Staffeln:** Einmal am Tag schaut die Erweiterung, ob es von Anime, die du gesehen hast oder gerade schaust, eine Fortsetzung gibt, die noch nicht auf deiner Liste ist. Neue Funde meldet sie einmal kurz, die ganze Liste steht im Symbol oben.
+
+**Filler:** Folgen, die Seanime als Filler kennt, können abgedunkelt oder ausgeblendet werden.
+
+**Rechtsklick auf Folgen** (im Folgen-Tab): „Bis hier als gesehen markieren“ und „Online-Stream starten“.
+
+**Bewerten nach der letzten Folge:** Hast du die letzte Folge einer Staffel gesehen, öffnet sich nach dem Player einmal das Bewertungsfenster von AniList Custom Ratings.
+
+**Schnellsuche:** Strg+K (am Mac Cmd+K) sucht in deiner Liste und bietet Aktionen wie Schlaftimer oder Einstellungen. Im Browser kann Strg+K schon belegt sein, dann geht es über das Symbol oben.
+
 ## Auf dem Handy
 
 Die Erweiterung läuft auf dem Seanime-Server und funktioniert deshalb auch im Handy-Browser, ohne extra Einstellung. Das Staffel-Dropdown nutzt dort die ganze Breite und ist groß genug zum Tippen.
@@ -74,6 +92,7 @@ Seanime schickt Seitenwechsel von Plugins an alle offenen Geräte. Springt eine 
 - `viktempest-ui.json`: die installierbare Erweiterung
 - `suite/settings.js`: Einstellungsseite, Farbschemas, Farbwahl beim ersten Start, Laden der Teile
 - `src/plugin.js`: Season Switcher
+- `src/extras.js`: Extras (Bildschirmschoner, Schlaftimer, neue Staffeln, Filler, Rechtsklick, Bewerten, Schnellsuche)
 - `suite/ratings/plugin.js`: AniList Custom Ratings (Kopie aus dem Repo custom-ratings-.5-options)
 - `suite/theme/`: Netflix-Theme (Desktop und Handy). Die Dateien bleiben direkt als Custom CSS nutzbar. Beim Bauen werden die festen Farben durch die Farben des gewählten Schemas ersetzt.
 - `test/smoke.js`: startet die Erweiterung mit nachgebauten Seanime-Schnittstellen und prüft die wichtigsten Abläufe
