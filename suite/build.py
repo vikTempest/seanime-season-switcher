@@ -3,19 +3,20 @@
 Usage (from the repository root):  python3 suite/build.py .
 
 Sources:
-  src/plugin.js               Season Switcher (unchanged, still builds its own JSON with build.py)
+  src/plugin.js               Season Switcher
   suite/ratings/plugin.js     AniList Custom Ratings (copy of the plugin from custom-ratings-.5-options)
-  suite/theme/*.css           Netflix theme (desktop and mobile)
-  suite/settings.js           settings page, theme loader, module loader
+  suite/theme/*.css           Netflix theme (desktop and mobile), turned into a theme for any colour scheme
+  suite/settings.js           settings page, colour schemes, first-start picker, module loader
 
 Each module keeps its own code. The script only renames its init(), routes $ui.register() to the
 module loader and swaps $getUserPreference for a reader of the settings page values.
 """
 import json
+import re
 import sys
 
 ROOT = sys.argv[1] if len(sys.argv) > 1 else "."
-VERSION = "1.0.1"
+VERSION = "1.1.0"
 ID = "viktempest-ui"
 JSON_NAME = "viktempest-ui.json"
 
@@ -59,14 +60,36 @@ def module(path, name, patches=()):
 switcher_fn, switcher = module("src/plugin.js", "switcher", [
     # The episodes tab is named after the extension id
     ('"ext:viktempest-season-switcher"', '"ext:%s"' % ID),
-    # Languages it doesn't have (es, pt, ja) use English
-    ('const lang = I18N[pref("language", "de")] ? pref("language", "de") : "de"',
-     'const lang = I18N[pref("language", "de")] ? pref("language", "de") : "en"'),
 ])
 ratings_fn, ratings = module("suite/ratings/plugin.js", "ratings")
 
-desktop = read("suite/theme/netflix-theme.css")
-mobile = read("suite/theme/netflix-theme-mobile.css")
+
+
+def themed(css, path):
+    """Turns the Netflix theme into a theme for any colour scheme.
+
+    The first block (the colour variables) is dropped, settings.js writes it for the chosen scheme.
+    The fixed red and black colours in the rest become variables of that block.
+    """
+    m = re.search(r":root, \.dark, \[data-mode=dark\] \{.*?\n\}\n", css, re.S)
+    if not m:
+        sys.exit("%s: colour block not found" % path)
+    css = css[:m.start()] + css[m.end():]
+    css = re.sub(r"rgba\(229,\s*9,\s*20,\s*([.\d]+)\)", r"rgb(var(--vs-accent-rgb) / \1)", css)
+    css = re.sub(r"rgba\(15,\s*15,\s*15,\s*([.\d]+)\)", r"rgb(var(--vs-bg-rgb) / \1)", css)
+    css = re.sub(r"#e50914\b", "var(--nf-red)", css, flags=re.I)
+    css = re.sub(r"#181818\b", "var(--paper)", css)
+    css = re.sub(r"#1f1f1f\b", "var(--paper-lighter)", css)
+    css = re.sub(r"#0f0f0f\b", "var(--background)", css)
+    css = re.sub(r"#232323\b", "var(--hover-from-background-color)", css)
+    left = re.findall(r"229,\s*9,\s*20|15,\s*15,\s*15", css)
+    if left:
+        sys.exit("%s: fixed theme colours left: %r" % (path, left))
+    return css
+
+
+desktop = themed(read("suite/theme/netflix-theme.css"), "netflix-theme.css")
+mobile = themed(read("suite/theme/netflix-theme-mobile.css"), "netflix-theme-mobile.css")
 # Seanime uses "Custom CSS" from 1024px and "Mobile custom CSS" below, the same split here
 theme_css = "@media (min-width: 1024px) {\n" + desktop + "\n}\n@media (max-width: 1023.98px) {\n" + mobile + "\n}\n"
 
@@ -77,6 +100,7 @@ payload = "\n".join([
     "// VikTempest Seanime UI for Seanime " + VERSION + ": Season Switcher, AniList Custom Ratings and the Netflix theme",
     "// in one extension, with a settings page in the sidebar. Built by suite/build.py, edit the sources there.",
     "",
+    "const VS_VERSION = " + json.dumps(VERSION) + "",
     "const VS_THEME_CSS = " + json.dumps(theme_css, ensure_ascii=False),
     "",
     read("suite/settings.js").strip(),
@@ -101,7 +125,7 @@ m = {
     "website": "https://github.com/vikTempest/vikTempest-Seanime-UI",
     "language": "javascript",
     "type": "plugin",
-    "description": "Season Switcher, AniList Custom Ratings and a Netflix theme in one extension. "
+    "description": "Season Switcher, AniList Custom Ratings and a theme with colour schemes (red, purple, blue or your own) in one extension. "
                    "All settings are on the \"VikTempest Seanime UI\" page in the sidebar. Languages: Deutsch, English, Español, Português, 日本語.",
     "author": "Vik",
     "icon": "https://raw.githubusercontent.com/vikTempest/custom-ratings-.5-options/main/icon.png",

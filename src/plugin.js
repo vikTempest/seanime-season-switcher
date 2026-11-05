@@ -9,7 +9,7 @@
 // Episodes on the info page of an anime you don't have on disk start online streaming when clicked.
 // Picking an entry opens that season's page. Your lists are not touched.
 //
-// UI language: German, English (plugin setting "language").
+// UI language: German, English, Spanish, Portuguese, Japanese (setting "language").
 
 function init() {
 
@@ -194,6 +194,9 @@ function init() {
                 toEpisodes: "Folgenübersicht",
                 playFailed: "Der Stream konnte nicht geöffnet werden. Ist Online-Streaming in den Einstellungen aktiv?",
                 defaultSet: "Season Switcher: Anime-Seiten öffnen ab jetzt mit der Folgenliste.",
+                notOnList: "nicht auf deiner Liste",
+                seasons: "{0} Staffeln",
+                rateLimit: "AniList ist gerade ausgelastet. Die Staffeln werden in etwa einer Minute geladen.",
             },
             en: {
                 label: "Season",
@@ -208,24 +211,84 @@ function init() {
                 toEpisodes: "All episodes",
                 playFailed: "Could not open the stream. Is online streaming enabled in the settings?",
                 defaultSet: "Season Switcher: anime pages now open on the episode list.",
+                notOnList: "not on your list",
+                seasons: "{0} seasons",
+                rateLimit: "AniList is busy right now. The seasons will load in about a minute.",
+            },
+            es: {
+                label: "Temporada",
+                season: "Temporada {0}",
+                current: "actual",
+                formats: { MOVIE: "Película", OVA: "OVA", ONA: "ONA", SPECIAL: "Especial", TV_SHORT: "Corto", MUSIC: "Música" },
+                episodesTab: "Episodios",
+                watched: "✓ Visto",
+                next: "▶ Continuar",
+                minutes: "{0} min vistos",
+                continueWatching: "Seguir viendo",
+                toEpisodes: "Todos los episodios",
+                playFailed: "No se pudo abrir el stream. ¿Está activado el streaming online en los ajustes?",
+                defaultSet: "Season Switcher: las páginas de anime se abren ahora con la lista de episodios.",
+                notOnList: "no está en tu lista",
+                seasons: "{0} temporadas",
+                rateLimit: "AniList está ocupado. Las temporadas se cargarán en un minuto.",
+            },
+            pt: {
+                label: "Temporada",
+                season: "Temporada {0}",
+                current: "atual",
+                formats: { MOVIE: "Filme", OVA: "OVA", ONA: "ONA", SPECIAL: "Especial", TV_SHORT: "Curta", MUSIC: "Música" },
+                episodesTab: "Episódios",
+                watched: "✓ Assistido",
+                next: "▶ Continuar",
+                minutes: "{0} min assistidos",
+                continueWatching: "Continuar assistindo",
+                toEpisodes: "Todos os episódios",
+                playFailed: "Não foi possível abrir o stream. O streaming online está ativado nas configurações?",
+                defaultSet: "Season Switcher: as páginas de anime agora abrem com a lista de episódios.",
+                notOnList: "não está na sua lista",
+                seasons: "{0} temporadas",
+                rateLimit: "O AniList está ocupado. As temporadas serão carregadas em cerca de um minuto.",
+            },
+            ja: {
+                label: "シーズン",
+                season: "シーズン{0}",
+                current: "現在",
+                formats: { MOVIE: "映画", OVA: "OVA", ONA: "ONA", SPECIAL: "スペシャル", TV_SHORT: "ショート", MUSIC: "音楽" },
+                episodesTab: "エピソード",
+                watched: "✓ 視聴済み",
+                next: "▶ 続きから",
+                minutes: "{0}分視聴",
+                continueWatching: "続きを見る",
+                toEpisodes: "エピソード一覧",
+                playFailed: "ストリームを開けませんでした。設定でオンラインストリーミングが有効になっていますか？",
+                defaultSet: "Season Switcher: アニメのページはエピソード一覧で開くようになりました。",
+                notOnList: "リストにありません",
+                seasons: "{0}シーズン",
+                rateLimit: "AniListが混み合っています。約1分後にシーズンを読み込みます。",
             },
         }
-        const lang = I18N[pref("language", "de")] ? pref("language", "de") : "de"
+        // Read when used, so a change on the settings page applies on the next page
+        function lang() {
+            const l = pref("language", "de")
+            return I18N[l] ? l : "en"
+        }
 
         function t(key, arg) {
-            const s = I18N[lang][key]
+            const table = I18N[lang()]
+            const s = table[key] !== undefined ? table[key] : I18N.en[key]
             return arg === undefined ? s : String(s).replace("{0}", String(arg))
         }
 
-        const titleLanguage = pref("titleLanguage", "english")
-        const includeExtras = pref("includeExtras", "no") === "yes"
+        const titleLanguage = () => pref("titleLanguage", "english")
+        const includeExtras = () => pref("includeExtras", "no") === "yes"
 
         // Formats that count as a season. Everything else (movies, OVAs, specials) is only shown
         // when "includeExtras" is on, but is always walked through so a movie between two seasons
         // does not break the chain.
         const SEASON_FORMATS = { TV: true, TV_SHORT: true, ONA: true }
         const MAX_ENTRIES = 40
-        const CACHE_MS = 6 * 60 * 60 * 1000
+        // Same as the library hook above: AniList data is kept 12 hours
+        const CACHE_MS = 12 * 60 * 60 * 1000
 
         // -----------------------------------------------------------------------------------------
         // AniList
@@ -236,6 +299,25 @@ function init() {
         const QUERY = "query ($id: Int) { Media(id: $id) { " + FIELDS +
             " relations { edges { relationType node { " + FIELDS +
             " relations { edges { relationType node { " + FIELDS + " } } } } } } } }"
+
+        // AniList allows only a few requests per minute, shared with Seanime. Say so once instead
+        // of silently showing no seasons.
+        let rateLimitToast = 0
+        function checkRateLimit(e) {
+            const msg = String((e && (e.message || e)) || "")
+            if (!/429|too many|rate.?limit/i.test(msg)) return
+            if (Date.now() - rateLimitToast < 120000) return
+            rateLimitToast = Date.now()
+            ctx.toast.warning(t("rateLimit"))
+        }
+
+        // Tells the settings page that a part of Seanime's page was found (see "Status" there)
+        function health(name) {
+            try {
+                if (typeof vsHealth === "function") vsHealth(name)
+            }
+            catch (e) {}
+        }
 
         function plain(v) {
             return v === undefined || v === null ? v : JSON.parse(JSON.stringify(v))
@@ -315,24 +397,60 @@ function init() {
 
         function titleOf(node) {
             const tl = node.title || {}
-            if (titleLanguage === "native") return tl.native || tl.romaji || tl.english || ("#" + node.id)
-            if (titleLanguage === "romaji") return tl.romaji || tl.english || tl.native || ("#" + node.id)
+            const tlang = titleLanguage()
+            if (tlang === "native") return tl.native || tl.romaji || tl.english || ("#" + node.id)
+            if (tlang === "romaji") return tl.romaji || tl.english || tl.native || ("#" + node.id)
             return tl.english || tl.romaji || tl.native || ("#" + node.id)
         }
 
+        // Your list entries (status and watched episodes) per anime id, from Seanime's copy of your
+        // AniList collection. Kept for a minute so switching pages doesn't read it every time.
+        const listCache = { time: 0, map: null }
+        function listEntries() {
+            if (listCache.map && Date.now() - listCache.time < 60000) return listCache.map
+            const map = {}
+            try {
+                const col = plain($anilist.getAnimeCollection(false))
+                const lists = (col && col.MediaListCollection && col.MediaListCollection.lists) || []
+                lists.forEach((list) => ((list && list.entries) || []).forEach((entry) => {
+                    if (entry && entry.media && entry.media.id) map[entry.media.id] = { status: entry.status, progress: entry.progress || 0 }
+                }))
+            }
+            catch (e) {
+                console.warn("season-switcher: could not read your list", e)
+                return null
+            }
+            listCache.time = Date.now()
+            listCache.map = map
+            return map
+        }
+
+        // "✓" in front when finished, "· 5/12" behind while watching, or "· not on your list"
+        function withProgress(label, node, entries) {
+            if (!entries) return label
+            const entry = entries[node.id]
+            if (!entry) return label + " · " + t("notOnList")
+            if (entry.status === "COMPLETED") return "✓ " + label
+            if ((entry.status === "CURRENT" || entry.status === "PAUSED" || entry.status === "REPEATING") && entry.progress > 0) {
+                return label + " · " + entry.progress + "/" + (node.episodes || "?")
+            }
+            return label
+        }
+
         function buildOptions(franchise, currentId) {
+            const entries = pref("showProgress", "yes") === "yes" ? listEntries() : null
             const options = []
             let season = 0
             franchise.forEach((node) => {
                 const isSeason = !!SEASON_FORMATS[node.format]
                 if (isSeason) season++
-                if (!isSeason && !includeExtras && node.id !== currentId) return
+                if (!isSeason && !includeExtras() && node.id !== currentId) return
                 const year = (node.startDate && node.startDate.year) || node.seasonYear
                 // AniList titles already say "Season 2" etc., so only extras get a label
                 const extra = isSeason ? "" : (t("formats")[node.format] || node.format || "")
                 options.push({
                     id: node.id,
-                    label: titleOf(node) + (extra || year ? " (" + [extra, year].filter(Boolean).join(", ") + ")" : ""),
+                    label: withProgress(titleOf(node) + (extra || year ? " (" + [extra, year].filter(Boolean).join(", ") + ")" : ""), node, entries),
                 })
             })
             return options
@@ -416,11 +534,11 @@ function init() {
         // hides every further card of a series that already has one in the same row.
 
         const CARD = "[data-media-entry-card-container][data-media-id]"
-        const rows = { timer: null, running: false, again: false, hidden: {}, parents: {}, swapped: {}, redirect: null }
+        const rows = { timer: null, running: false, again: false, hidden: {}, parents: {}, swapped: {}, badged: {}, redirect: null }
 
         // PREQUEL/SEQUEL ids, start date, format, title and cover per id
         function loadRelations(ids) {
-            const REL_CACHE_MS = 12 * 60 * 60 * 1000
+            const REL_CACHE_MS = CACHE_MS
             const rel = {}
             let wanted = ids.slice()
             for (let round = 0; round < 8 && wanted.length; round++) {
@@ -444,6 +562,7 @@ function init() {
                     catch (e) {
                         // e.g. AniList's request limit: use what we have, the rest comes next time
                         console.warn("season-switcher: could not load relations", e)
+                        checkRateLimit(e)
                         continue
                     }
                     const page = (res && (res.Page || (res.data && res.data.Page))) || {}
@@ -559,6 +678,7 @@ function init() {
                                 const first = firstSeason(rel, find, id)
                                 if (first && first.id !== id) swapCard(c, id, first)
                             }
+                            if (!shouldHide) seasonBadge(c, seasonCount(rel, find, id))
                         })
                     })
                 })
@@ -582,6 +702,37 @@ function init() {
                 if (!best || score < best.score) best = { score: score, node: node }
             })
             return best ? best.node : null
+        }
+
+        // Number of seasons (TV, short, ONA) of the series this anime belongs to
+        function seasonCount(rel, find, id) {
+            const root = find(id)
+            let n = 0
+            Object.keys(rel).forEach((key) => {
+                const node = rel[key]
+                if (node && node.id && SEASON_FORMATS[node.format] && find(node.id) === root) n++
+            })
+            return n
+        }
+
+        // Small "3 seasons" mark on the cover of a card that stands for several seasons
+        function seasonBadge(card, count) {
+            const n = pref("seasonBadge", "yes") === "yes" && count > 1 ? count : 0
+            if ((rows.badged[card.id] || 0) === n) return
+            rows.badged[card.id] = n
+            const el = ctx.dom.asElement(card.id)
+            el.queryOne("[data-media-entry-card-body]").then((body) => {
+                if (!body) return
+                return body.query(".vtss-seasons").then((old) => {
+                    ;(old || []).forEach((o) => o.remove())
+                    if (!n) return
+                    return ctx.dom.createElement("div").then((badge) => {
+                        badge.setAttribute("class", "vtss-seasons")
+                        badge.setText(t("seasons", n))
+                        body.append(badge)
+                    })
+                })
+            }).catch(() => {})
         }
 
         function capitalize(s) {
@@ -635,12 +786,15 @@ function init() {
             " .vtss-watched { position: absolute; top: .35rem; left: .35rem; z-index: 4; padding: .1rem .45rem; border-radius: .4rem;" +
             " background: rgba(0,0,0,.7); color: #fff; font-size: .75rem; font-weight: 600; pointer-events: none; }" +
             " .vtss-next { position: absolute; top: .35rem; left: .35rem; z-index: 4; padding: .1rem .5rem; border-radius: .4rem;" +
-            " background: var(--brand, #e50914); color: #fff; font-size: .75rem; font-weight: 700; pointer-events: none; }" +
+            " background: rgb(var(--color-brand-500)); color: #fff; font-size: .75rem; font-weight: 700; pointer-events: none; }" +
             " .vtss-progress { position: absolute; left: 0; right: 0; bottom: 0; z-index: 4; height: 4px; background: rgba(255,255,255,.2); pointer-events: none; }" +
-            " .vtss-progress > div { height: 100%; background: var(--brand, #e50914); }" +
+            " .vtss-progress > div { height: 100%; background: rgb(var(--color-brand-500)); }" +
             " .vtss-progress-label { position: absolute; bottom: .4rem; right: .35rem; z-index: 4; padding: .1rem .45rem; border-radius: .4rem;" +
             " background: rgba(0,0,0,.7); color: #fff; font-size: .75rem; font-weight: 600; pointer-events: none; }" +
             " .vtss-continue { margin: 0 0 1.75rem; }" +
+            " .vtss-seasons { position: absolute; top: .45rem; left: .45rem; z-index: 11; padding: .1rem .5rem; border-radius: .4rem;" +
+            " background: rgba(0,0,0,.72); color: #fff; font-size: .72rem; font-weight: 700; pointer-events: none;" +
+            " box-shadow: inset 0 0 0 1px rgb(var(--color-brand-500) / .7); }" +
             " .vtss-continue-label { font-size: 1.15rem; font-weight: 600; margin: 0 0 .75rem; }" +
             " .vtss-continue-item { cursor: pointer; }" +
             " .vtss-continue [data-vtss-copy-action] { display: none !important; }" +
@@ -746,13 +900,8 @@ function init() {
             }, 4000)
         }
 
+        // Online streaming only. (Debrid and torrent streaming have no "open episode N" address.)
         function playEpisode(mediaId, episodeNumber) {
-            const method = pref("playMethod", "onlinestream")
-            if (method === "debridstream" || method === "torrentstream") {
-                // These views have no "open episode N" address; open them so the episode can be picked there
-                reopenEntry(mediaId, { tab: method })
-                return
-            }
             reopenEntry(mediaId, { tab: "onlinestream", episode: episodeNumber })
         }
 
@@ -1037,6 +1186,7 @@ function init() {
                 rows.hidden = {}
                 rows.parents = {}
                 rows.swapped = {}
+                rows.badged = {}
                 episodes.done = {}
                 marks.done = {}
                 marks.progress = {}
@@ -1060,6 +1210,7 @@ function init() {
                 }
                 catch (e) {
                     console.warn("season-switcher: could not load seasons for " + id, e)
+                    checkRateLimit(e)
                 }
             }, 50)
         }
@@ -1068,25 +1219,35 @@ function init() {
             // The header is rendered after the page data has loaded and can be re-rendered,
             // so add the dropdown whenever the title container (re)appears.
             ctx.dom.observe(TITLE_CONTAINER, (elements) => {
-                if (elements && elements.length) inject()
+                if (elements && elements.length) {
+                    health("title")
+                    inject()
+                }
             })
             ctx.dom.observe(EPISODE, (elements) => {
                 if (pref("episodeClick", "yes") !== "yes") return
                 ;(elements || []).forEach(setupEpisode)
             })
             ctx.dom.observe(TAB_EPISODE, (elements) => {
+                if (elements && elements.length) health("episodes")
                 ;(elements || []).forEach(markEpisode)
                 if (elements && elements.length) scheduleContinue()
             })
             ctx.dom.observe(ONLINE_VIEW, (elements) => {
-                if (elements && elements.length) checkOnlineView()
+                if (elements && elements.length) {
+                    health("stream")
+                    checkOnlineView()
+                }
             })
             ctx.dom.observe(VIEW_TOGGLE, (elements) => {
                 if (elements && elements.length) addEpisodesButton(elements[0])
             })
             ensureStyle()
             // Cards on the home page appear while rows load and scroll into view
-            ctx.dom.observe(CARD, () => scheduleMergeRows())
+            ctx.dom.observe(CARD, (elements) => {
+                if (elements && elements.length) health("cards")
+                scheduleMergeRows()
+            })
             ctx.screen.onNavigate((e) => onPage(e.pathname, e.searchParams))
             ctx.screen.loadCurrent()
         })

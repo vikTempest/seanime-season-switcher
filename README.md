@@ -1,69 +1,78 @@
-> **Neu: VikTempest Seanime UI.** Season Switcher, AniList Custom Ratings und das Netflix-Theme gibt es jetzt zusammen in einer Erweiterung mit eigener Einstellungsseite. Installieren per Link: `https://raw.githubusercontent.com/vikTempest/vikTempest-Seanime-UI/main/viktempest-ui.json` (vorher den einzelnen Season Switcher und AniList Custom Ratings deinstallieren). Mehr dazu in [suite/README.md](suite/README.md).
+# VikTempest Seanime UI
 
-# Season Switcher – Plugin für Seanime
+Eine Erweiterung für Seanime mit allem drin:
 
-**Startseite:** Jede Serie erscheint nur noch einmal. Liegen z. B. Staffel 1 und Staffel 2 im selben Bereich (etwa „Currently watching“ oder „Completed“), bleibt nur eine Karte stehen. Bei „Continue watching“ bleibt die früheste Staffel, also die, bei der du gerade bist. Stehen die Staffeln in verschiedenen Bereichen (Staffel 1 bei „Completed“, Staffel 2 bei „Watching“), bleiben beide sichtbar, weil sie dort ja etwas anderes bedeuten.
+- **Season Switcher:** Staffeln zusammenfassen, Staffel-Dropdown mit Fortschritt, Folgenliste statt Sofort-Stream
+- **AniList Custom Ratings:** Bewertungskategorien und Custom Lists
+- **Theme:** schwarzer Netflix-Look in Rot, Lila, Blau oder deinen eigenen Farben
 
-Das gilt auch für die anderen Zeilen der Startseite, z. B. Genre-Zeilen wie „Romance“: Stehen dort Re:ZERO Staffel 3 und 4 nebeneinander, bleibt nur eine Karte. Die Karte zeigt immer die erste Staffel (Titel, Jahr, Bild), auch wenn dort eigentlich Staffel 2 stand, und ein Klick öffnet Staffel 1. Bei solchen Karten blendet das Plugin Vorschau-Popup und Fortschritts-Abzeichen aus, weil Seanime die noch von der anderen Staffel füllt. Bei Reihen wie JoJo's Bizarre Adventure steht so eine Karte für die ganze Reihe, die einzelnen Teile wählst du dann im Dropdown.
-
-**Anime-Seite:** Fügt unter dem Titel ein Dropdown **„Staffel“** ein. Darin stehen alle Staffeln des Franchise, z. B. bei *The Apothecary Diaries* Staffel 1, 2 und 3. Wählst du eine aus, springt Seanime direkt auf die Seite dieser Staffel.
-
-Deine Listen bleiben unverändert: Jede Staffel bleibt auf AniList ein eigener Eintrag, das Plugin ändert nichts an deinem Konto.
-
-**Infoseite:** Klickst du auf eine Serie, öffnet sich die Seite mit Infos und allen Folgen (Bild, Titel, Beschreibung), statt sofort einen Stream zu laden. Die Quellen-Umschaltung (Local library, Online streaming usw.) blendet das Plugin aus. Über der Liste steht unter „Weiterschauen“ die Folge, bei der du aufgehört hast (oder die nächste), im selben Format wie die Liste. Erst ein Klick auf eine Folge startet den Online-Stream genau dieser Folge. Dafür lädt die Seite einmal kurz neu, weil Seanime die Ansicht nur beim Öffnen einer Seite wählt. Mit „Zurück“ landest du danach auf der Startseite, und über den Knopf „Folgenübersicht“ oben rechts beim Stream kommst du zurück zur Folgenliste. Die Folgenliste neben dem Stream zeigt Bild und Titel ohne Beschreibung (Titel je nach Spoiler-Einstellung verschwommen). Bei Debrid- oder Torrent-Streaming (Einstellung „Womit Folgen abgespielt werden“) öffnet der Klick die jeweilige Ansicht, dort wählst du die Folge dann aus. Beim ersten Start fragt Seanime einmal, ob das Plugin die Einstellung „Default episode source“ auf den Folgen-Tab setzen darf. Erlaubst du das, öffnet jede Anime-Seite direkt mit der Folgenliste, ohne Umweg und Flackern. Lehnst du ab, öffnet das Plugin den Folgen-Tab mit einem kurzen Neuladen.
-
-Im Folgen-Tab fehlt die große „Weiterschauen“-Reihe oben. Stattdessen trägt die nächste Folge ein „▶ Weiterschauen“, gesehene Folgen ein kleines „✓ Gesehen“ und die zuletzt angefangene Folge einen Fortschrittsbalken mit den geschauten Minuten. Alle anderen bleiben ohne Markierung.
-
-## Auf dem Handy
-
-Das Plugin läuft auf dem Seanime-Server, also funktioniert es automatisch auch, wenn du Seanime im Handy-Browser öffnest. Du musst auf dem Handy nichts extra installieren oder einstellen. Das Staffel-Dropdown steht dort mittig unter dem Titel, nutzt die ganze Breite und ist groß genug zum Tippen (iPhones zoomen beim Antippen nicht mehr rein). Auf die Folgenbilder und -titel kannst du tippen, um den Stream zu starten.
-
-Das Plugin hat einen gemeinsamen Zustand für alle Geräte. Springt eine Seite unerwartet, während Seanime gleichzeitig auf PC und Handy offen ist, schließ Seanime auf dem Gerät, das du gerade nicht nutzt.
-
-## Wie die Staffeln gefunden werden
-
-Das Plugin folgt auf AniList den Verknüpfungen „Prequel“ und „Sequel“ und sortiert alles nach Startdatum. Als Staffel zählen TV-Serien, Kurzserien und ONAs. Filme, OVAs und Specials werden mit durchlaufen (damit z. B. ein Film zwischen zwei Staffeln die Kette nicht unterbricht), aber nur angezeigt, wenn du das in den Einstellungen einschaltest.
-
-Gibt es nur eine Staffel, erscheint kein Dropdown.
-
-Die Daten werden 6 Stunden zwischengespeichert, damit das Plugin AniLists Anfrage-Limit nicht belastet.
-
-## Einstellungen
-
-In Seanime unter **Extensions → Season Switcher → Preferences**:
-
-- **Language / Sprache:** Deutsch (Standard) oder English
-- **Titles / Titel:** Englisch (Standard), Romaji oder Japanisch
-- **Filme, OVAs und Specials anzeigen:** Nein (Standard) oder Ja
-- **Staffeln auf der Startseite zusammenfassen:** Ja (Standard) oder Nein
-- **Welche Karte pro Serie:** erste Staffel (Standard) oder neueste Staffel
-- **Anime-Seiten mit Folgenliste öffnen:** Ja (Standard) oder Nein
-- **Folge anklicken startet Online-Stream:** Ja (Standard) oder Nein (für Folgen in der „Local library“-Ansicht)
-- **Womit Folgen abgespielt werden:** Online streaming (Standard), Debrid streaming oder Torrent streaming
+Sprachen: Deutsch, English, Español, Português, 日本語
 
 ## Installation
 
-**Per Link (empfohlen):** In Seanime unter **Extensions** auf „Add extensions“ klicken und unter „Install from URL“ diesen Link einfügen:
+In Seanime unter **Extensions** auf „Add extensions“ klicken und unter „Install from URL“ diesen Link einfügen:
 
 ```
-https://raw.githubusercontent.com/vikTempest/vikTempest-Seanime-UI/main/season-switcher.json
+https://raw.githubusercontent.com/vikTempest/vikTempest-Seanime-UI/main/viktempest-ui.json
 ```
 
-Danach das Plugin aktivieren und die Berechtigung (AniList-Zugriff) bestätigen. Neue Versionen kann Seanime dann selbst aktualisieren.
+Danach die Erweiterung aktivieren und die Berechtigungen bestätigen (AniList, AniList-Token, Datenbank, Einstellungen, Speicher).
 
-**Per Datei:**
+Beim ersten Start passieren zwei Dinge:
 
-1. Seanime schließen.
-2. `season-switcher.json` in den Ordner `%APPDATA%\Seanime\extensions` kopieren.
-3. Seanime starten, unter **Extensions** das Plugin aktivieren und die Berechtigung (AniList-Zugriff) bestätigen.
+1. Ein Fenster fragt, welches **Farbschema** du willst. Ein Klick ändert die Farben sofort, „Fertig“ schließt das Fenster. Du kannst es später jederzeit ändern.
+2. Seanime fragt einmal, ob die Erweiterung die „Default episode source“ auf ihren Folgen-Tab setzen darf. Erlaubst du das, öffnet jede Anime-Seite direkt mit der Folgenliste.
 
-Hast du die Datei vorher schon manuell installiert, lösch sie aus dem Ordner, bevor du per Link installierst, sonst meldet Seanime „extension ID is already in use“.
+**Umstieg von den einzelnen Plugins:** Deinstalliere unter **Extensions** vorher **Season Switcher** und **AniList Custom Ratings**, sonst läuft alles doppelt. Den einzelnen Season Switcher (`season-switcher.json`) gibt es nicht mehr. Hast du das Netflix-Theme unter Einstellungen → User Interface → CSS eingefügt, leere dort die Felder. Deine Bewertungen und Listen liegen auf AniList und bleiben erhalten.
 
-Die Plugin-ID ist `viktempest-season-switcher`, sie kollidiert also nicht mit anderen Erweiterungen.
+## Einstellungen
 
-## Dateien
+Alle Einstellungen stehen auf einer eigenen Seite: in der linken Seitenleiste von Seanime auf **„VikTempest Seanime UI“** klicken.
 
-- `season-switcher.json`: das installierbare Plugin (Manifest mit eingebettetem Code)
-- `src/plugin.js`: derselbe Code lesbar
+- **Theme:** Aus, Rot, Lila, Blau oder Eigene (Akzent- und Hintergrundfarbe frei wählbar). Wirkt sofort, ohne Speichern.
+- **Allgemein:** Sprache und jeden Teil einzeln an/aus
+- **Season Switcher:** Titel-Sprache, Filme/OVAs im Dropdown, Fortschritt im Dropdown, Staffeln zusammenfassen, welche Karte pro Serie, Abzeichen „X Staffeln“, Folgenliste statt Sofort-Stream, Folge anklicken startet Stream
+- **AniList Custom Ratings:** Schrittweite der Pfeiltasten
 
-Nach einer Änderung an `src/plugin.js`: `version` in `build.py` erhöhen und `python3 build.py .` ausführen, das schreibt den Code in die JSON-Datei.
+Die meisten Einstellungen gelten sofort nach dem Speichern, spätestens beim nächsten Seitenwechsel. Nur die mit „nach Neustart“ markierten (Sprache, Teile an/aus, Folgenliste) brauchen einen Neustart von Seanime, weil sich ein Plugin nicht selbst neu laden kann. „Auf Standard zurücksetzen“ stellt alles auf den Anfang.
+
+Unter **Status** siehst du, ob die Erweiterung die Teile von Seanime findet, mit denen sie arbeitet. Steht dort nach einem Seanime-Update „noch nicht gesehen“, obwohl du die passende Seite geöffnet hast, hat das Update etwas verändert.
+
+## Season Switcher
+
+**Startseite:** Jede Serie erscheint nur noch einmal. Liegen z. B. Staffel 1 und Staffel 2 im selben Bereich (etwa „Currently watching“ oder „Completed“), bleibt nur eine Karte stehen. Bei „Continue watching“ bleibt die früheste Staffel, also die, bei der du gerade bist. Stehen die Staffeln in verschiedenen Bereichen (Staffel 1 bei „Completed“, Staffel 2 bei „Watching“), bleiben beide sichtbar.
+
+Das gilt auch für die anderen Zeilen der Startseite, z. B. Genre-Zeilen wie „Romance“. Die Karte zeigt immer die erste Staffel (Titel, Jahr, Bild), und ein Klick öffnet Staffel 1. Hat eine Serie mehrere Staffeln, steht oben links auf der Karte ein kleines Abzeichen, z. B. „3 Staffeln“.
+
+**Anime-Seite:** Unter dem Titel steht ein Dropdown **„Staffel“** mit allen Staffeln der Reihe. Wählst du eine aus, springt Seanime auf ihre Seite. Im Dropdown siehst du deinen Stand: „✓“ vor fertigen Staffeln, „5/12“ hinter angefangenen und „nicht auf deiner Liste“ bei Staffeln, die du noch nicht eingetragen hast.
+
+**Folgenliste:** Klickst du auf eine Serie, öffnet sich die Seite mit Infos und allen Folgen, statt sofort einen Stream zu laden. Über der Liste steht unter „Weiterschauen“ die Folge, bei der du aufgehört hast. Erst ein Klick auf eine Folge startet den Online-Stream genau dieser Folge. Dafür lädt die Seite einmal kurz neu, weil Seanime die Ansicht nur beim Öffnen einer Seite wählt. Über den Knopf „Folgenübersicht“ beim Stream kommst du zurück zur Folgenliste.
+
+Die nächste Folge trägt „▶ Weiterschauen“, gesehene Folgen „✓ Gesehen“ und die zuletzt angefangene einen Fortschrittsbalken.
+
+Die Erweiterung ist auf **Online-Streaming** ausgelegt. Willst du Seanime so, wie es ohne diese Optimierung ist (z. B. für Debrid oder Torrent), stell „Anime-Seiten mit Folgenliste öffnen“ und „Folge anklicken startet Online-Stream“ auf „Nein“.
+
+Deine Listen bleiben unverändert: Jede Staffel bleibt auf AniList ein eigener Eintrag.
+
+### Wie die Staffeln gefunden werden
+
+Die Erweiterung folgt auf AniList den Verknüpfungen „Prequel“ und „Sequel“ und sortiert alles nach Startdatum. Als Staffel zählen TV-Serien, Kurzserien und ONAs. Filme, OVAs und Specials werden mit durchlaufen (damit ein Film zwischen zwei Staffeln die Kette nicht unterbricht), aber nur angezeigt, wenn du das einschaltest. Gibt es nur eine Staffel, erscheint kein Dropdown.
+
+Die Daten werden 12 Stunden zwischengespeichert, weil AniList nur wenige Anfragen pro Minute erlaubt. Ist das Limit doch einmal erreicht, zeigt Seanime eine kurze Meldung, und die Staffeln kommen etwa eine Minute später.
+
+## Auf dem Handy
+
+Die Erweiterung läuft auf dem Seanime-Server und funktioniert deshalb auch im Handy-Browser, ohne extra Einstellung. Das Staffel-Dropdown nutzt dort die ganze Breite und ist groß genug zum Tippen.
+
+Seanime schickt Seitenwechsel von Plugins an alle offenen Geräte. Springt eine Seite unerwartet, während Seanime gleichzeitig auf PC und Handy offen ist, schließ Seanime auf dem Gerät, das du gerade nicht nutzt.
+
+## Für Entwickler
+
+- `viktempest-ui.json`: die installierbare Erweiterung
+- `suite/settings.js`: Einstellungsseite, Farbschemas, Farbwahl beim ersten Start, Laden der Teile
+- `src/plugin.js`: Season Switcher
+- `suite/ratings/plugin.js`: AniList Custom Ratings (Kopie aus dem Repo custom-ratings-.5-options)
+- `suite/theme/`: Netflix-Theme (Desktop und Handy). Die Dateien bleiben direkt als Custom CSS nutzbar. Beim Bauen werden die festen Farben durch die Farben des gewählten Schemas ersetzt.
+- `test/smoke.js`: startet die Erweiterung mit nachgebauten Seanime-Schnittstellen und prüft die wichtigsten Abläufe
+
+Nach jeder Änderung: `VERSION` in `suite/build.py` erhöhen, `python3 suite/build.py .` und `node test/smoke.js` ausführen. GitHub prüft bei jedem Push, ob die JSON zum Code passt und der Test durchläuft.
