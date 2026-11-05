@@ -32,7 +32,8 @@ const navigations = []
 const webviews = []
 const observers = []
 const created = []
-let navigateCb = null
+const navigateCbs = []
+const navigateCb = (e) => navigateCbs.forEach((cb) => cb(e))
 let mainTabReady = []
 let uiFn = null
 
@@ -77,6 +78,13 @@ function channel() {
 }
 
 const trays = []
+const intervals = []
+const videoListeners = {}
+const videoCalls = []
+const palettes = []
+const menuItems = []
+let clockOffset = 0
+let playbackInfo = null
 const eventHandlers = {}
 
 function stub(name) {
@@ -89,11 +97,11 @@ function stub(name) {
 
 const ctx = {
     setTimeout(fn) { fn(); return () => {} },
-    setInterval() { return () => {} },
+    setInterval(fn) { intervals.push(fn); return () => {} },
     toast: { success: (m) => toasts.push(["success", m]), warning: (m) => toasts.push(["warning", m]), error: (m) => toasts.push(["error", m]), info: (m) => toasts.push(["info", m]) },
     screen: {
         navigateTo(path, params) { navigations.push({ path, params }) },
-        onNavigate(cb) { navigateCb = cb },
+        onNavigate(cb) { navigateCbs.push(cb) },
         loadCurrent() {},
         state() { return { get: () => ({ pathname: "/", searchParams: {} }) } },
     },
@@ -135,7 +143,23 @@ const ctx = {
         return t
     },
     newModal() { return stub("modal") },
-    action: stub("action"),
+    action: new Proxy({}, { get: (_, k) => (props) => {
+        const item = { kind: String(k), props, click: null, mount() {}, unmount() {}, onClick(fn) { this.click = fn } }
+        menuItems.push(item)
+        return item
+    } }),
+    videoCore: {
+        addEventListener(type, fn) { videoListeners[type] = fn },
+        pause() { videoCalls.push("pause") },
+        getCurrentPlaybackInfo() { return playbackInfo },
+    },
+    newCommandPalette(options) {
+        const p = { options, items: [], openFn: null, opened: 0,
+            setItems(i) { this.items = i }, onOpen(fn) { this.openFn = fn }, onClose() {},
+            open() { this.opened++; if (this.openFn) this.openFn() }, close() {} }
+        palettes.push(p)
+        return p
+    },
 }
 
 // AniList: a three season franchise 1 -> 2 -> 3 and a movie 9 between 1 and 2
@@ -161,14 +185,27 @@ const $anilist = {
     },
     getAnimeCollection() {
         return { MediaListCollection: { lists: [{ entries: [
-            { status: "COMPLETED", progress: 12, media: { id: 1 } },
-            { status: "CURRENT", progress: 5, media: { id: 2 } },
+            { status: "COMPLETED", progress: 12, media: { id: 1, title: { english: "Show", romaji: "Shou" }, bannerImage: "b1.jpg" } },
+            { status: "CURRENT", progress: 5, media: { id: 2, title: { english: "Show Season 2" }, bannerImage: "b2.jpg" } },
         ] }] } }
     },
     getRawAnimeCollection() { return { MediaListCollection: { lists: [] } } },
     getRawMangaCollection() { return { MediaListCollection: { lists: [] } } },
     refreshAnimeCollection() {}, refreshMangaCollection() {},
+    getAnimeCollectionWithRelations() {
+        return { MediaListCollection: { lists: [{ entries: [
+            { status: "COMPLETED", media: { id: 1, title: { english: "Show" }, relations: { edges: [
+                { relationType: "SEQUEL", node: { id: 2, format: "TV", status: "FINISHED", title: { english: "Show Season 2" } } },
+            ] } } },
+            { status: "CURRENT", media: { id: 2, title: { english: "Show Season 2" }, relations: { edges: [
+                { relationType: "SEQUEL", node: { id: 50, format: "TV", status: "RELEASING", title: { english: "Show Season 3" } } },
+                { relationType: "SEQUEL", node: { id: 51, format: "MOVIE", status: "FINISHED", title: { english: "Show Movie 2" } } },
+            ] } } },
+        ] }] } }
+    },
+    updateEntryProgress(id, progress) { progressUpdates.push([id, progress]) },
 }
+const progressUpdates = []
 
 // Seanime loads the payload in one runtime and then runs the $ui.register() callback and every
 // hook in other runtimes, compiled from their source text only. The test does the same, so code
@@ -182,7 +219,11 @@ function bindings() {
         $database: { anilist: { getToken: () => "" } },
     }
     b.globalThis = b
-    return vm.createContext(b)
+    b.__clock = () => clockOffset
+    const c = vm.createContext(b)
+    // A clock the test can move forward
+    vm.runInContext("Date.now = ((now) => () => now() + __clock())(Date.now)", c)
+    return c
 }
 function isolated(fn) {
     return vm.runInContext("(" + fn.toString() + ")", bindings())
@@ -329,8 +370,120 @@ setImmediate(() => {
                         obs.cb([titleContainer])
                         assert.ok((store.get("vsuite:health") || {}).title)
                     })
-                    console.log(failures ? "\n" + failures + " failed" : "\nall passed")
-                    process.exitCode = failures ? 1 : 0
+                    check("manifest asks for the playback permission", () => {
+                        assert.ok(manifest.plugin.permissions.scopes.includes("playback"))
+                    })
+                    check("new seasons: sequel not on the list, once", () => {
+                        const msgs = toasts.filter((t) => /Neue Staffel/.test(t[1]))
+                        assert.strictEqual(msgs.length, 1, JSON.stringify(toasts))
+                        assert.ok(msgs[0][1].includes("Show Season 3"))
+                        assert.ok(!msgs[0][1].includes("Movie"))
+                        const out = JSON.stringify(trays[0].renderFn())
+                        assert.ok(out.includes("Neue Staffeln") && out.includes("Show Season 3"), out)
+                    })
+                    check("tray has the sleep timer", () => {
+                        const out = JSON.stringify(trays[0].renderFn())
+                        assert.ok(out.includes("Schlaftimer: aus"), out)
+                    })
+                    check("sleep timer pauses after the time", () => {
+                        eventHandlers["vsx-sleep15"]()
+                        assert.ok(JSON.stringify(trays[0].renderFn()).includes("pausiert in 15 min"))
+                        videoCalls.length = 0
+                        clockOffset += 16 * 60000
+                        intervals.forEach((fn) => fn())
+                        assert.deepStrictEqual(videoCalls, ["pause"])
+                        assert.ok(JSON.stringify(trays[0].renderFn()).includes("Schlaftimer: aus"))
+                    })
+                    check("sleep timer after this episode pauses the next one", () => {
+                        eventHandlers["vsx-sleepEp"]()
+                        videoCalls.length = 0
+                        videoListeners["video-ended"]({ autoNext: true })
+                        videoListeners["video-can-play"]({ paused: false })
+                        assert.deepStrictEqual(videoCalls, ["pause", "pause"])
+                        videoListeners["video-can-play"]({ paused: false })
+                        assert.strictEqual(videoCalls.length, 2, "only the next episode")
+                    })
+                    check("screensaver after idle minutes, not while playing, closes with the button", () => {
+                        // The sleep timer test above moved the clock, so the screensaver may be up already
+                        const find = () => webviews.find((w) => w.options.zIndex === 99999)
+                        let shown = !!find()
+                        if (find()) {
+                            find().hide = () => { shown = false }
+                            find().show = () => { shown = true }
+                            find().channel.handlers.close()
+                        }
+                        assert.ok(!shown)
+                        const n = webviews.length
+                        videoListeners["video-paused"]({})
+                        clockOffset += 6 * 60000
+                        videoListeners["video-resumed"]({})
+                        intervals.forEach((fn) => fn())
+                        assert.ok(!shown && webviews.length === n, "no screensaver while a video plays")
+                        const countBefore = webviews.length
+                        videoListeners["video-paused"]({})
+                        clockOffset += 6 * 60000
+                        intervals.forEach((fn) => fn())
+                        const saver = find()
+                        assert.ok(saver && (shown || webviews.length === countBefore + 1), "screensaver expected")
+                        assert.strictEqual(saver.options.slot, "fixed")
+                        assert.ok(/width:100vw/.test(saver.options.style))
+                        assert.ok(saver.content.includes("graphql.anilist.co") && saver.content.includes("TRENDING_DESC"))
+                        saver.channel.handlers.ready()
+                        const init = saver.channel.sent.find((m) => m.name === "init")
+                        assert.ok(init.payload.fallback.length === 2 && init.payload.fallback[0].bannerImage, JSON.stringify(init.payload.fallback))
+                        assert.strictEqual(init.payload.text.saverBack, "Zurück zu Seanime")
+                        let hidden = false
+                        saver.hide = () => { hidden = true }
+                        saver.channel.handlers.open({ id: 7 })
+                        assert.ok(hidden)
+                        const last = navigations[navigations.length - 1]
+                        assert.strictEqual(last.path, "/entry")
+                        assert.strictEqual(last.params.id, "7")
+                    })
+                    check("rating window after the last episode", () => {
+                        toasts.length = 0
+                        playbackInfo = { media: { id: 3, episodes: 12, title: { english: "Show Season 3" } }, episode: { episodeNumber: 12, progressNumber: 12 } }
+                        videoListeners["video-completed"]({})
+                        videoListeners["video-terminated"]({})
+                        assert.ok(toasts.some((t) => /Show Season 3/.test(t[1])), JSON.stringify(toasts))
+                        toasts.length = 0
+                        videoListeners["video-completed"]({})
+                        videoListeners["video-terminated"]({})
+                        assert.strictEqual(toasts.length, 0, "asked only once")
+                    })
+                    check("quick search lists your anime and opens it", () => {
+                        const p = palettes[0]
+                        assert.strictEqual(p.options.keyboardShortcut, "mod+k")
+                        p.open()
+                        const item = p.items.find((i) => /Shou/.test(i.value))
+                        assert.ok(item, JSON.stringify(p.items.map((i) => i.value)))
+                        item.onSelect()
+                        const last = navigations[navigations.length - 1]
+                        assert.strictEqual(last.params.id, "1")
+                    })
+                    check("right-click: mark watched up to here", () => {
+                        const item = menuItems.find((m) => m.kind === "newEpisodeGridItemMenuItem" && /gesehen/.test(m.props.label))
+                        assert.strictEqual(item.props.type, "episodeTab:viktempest-ui")
+                        item.click({ episode: { episodeNumber: 4, progressNumber: 4, baseAnime: { id: 2, episodes: 12 } } })
+                        assert.deepStrictEqual(progressUpdates[0], [2, 4])
+                    })
+                    check("filler dimmed", () => {
+                        setImmediate(() => check("filler style added", () => {
+                            const st = body.children.find((c) => c.attributes["data-vsx-filler"])
+                            assert.ok(st && /data-is-filler/.test(st.text) && /opacity/.test(st.text), st && st.text)
+                        }))
+                        const s = JSON.parse(JSON.stringify(storage.get("vsuite:settings")))
+                        s.filler = "dim"
+                        storage.set("vsuite:settings", s)
+                        store.set("vsuite:settings", s)
+                        navigateCb({ pathname: "/entry", searchParams: { id: "1" } })
+                        return new Promise((r) => setImmediate(r))
+                    })
+                    // after the checks that wait for the page (filler style)
+                    setImmediate(() => setImmediate(() => {
+                        console.log(failures ? "\n" + failures + " failed" : "\nall passed")
+                        process.exitCode = failures ? 1 : 0
+                    }))
                 }))
             })
         })
