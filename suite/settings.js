@@ -19,6 +19,42 @@ function vsRegister(name, fn) {
     vsModules.push({ name: name, fn: fn })
 }
 
+// The tray icon (top bar) is the way into the settings: Seanime only shows the sidebar entry
+// after the sidebar is loaded again, so after installing it is missing until a reload.
+// A plugin has one tray, so a module that wants its own tray content asks for it here.
+let vsTrayState = { ctx: null, tray: null }
+
+function vsOpenSettings() {
+    try { vsTrayState.ctx.screen.navigateTo("/webview", { id: VS_EXT_ID }) }
+    catch (e) { console.warn("viktempest-ui: could not open settings", e) }
+}
+
+// Returns the shared tray. Its content starts with the title and an "open settings" button.
+function vsTray(opts) {
+    const ctx = vsTrayState.ctx
+    if (!vsTrayState.tray) {
+        vsTrayState.tray = ctx.newTray(Object.assign({
+            iconUrl: VS_TRAY_ICON,
+            tooltipText: "VikTempest Seanime UI",
+            withContent: true,
+            width: "24rem",
+        }, opts || {}))
+    }
+    return vsTrayState.tray
+}
+
+function vsTrayHeader(tray) {
+    const lang = vsLoadSettings().language === "de" ? "de" : "en"
+    return [
+        tray.text("VikTempest Seanime UI", { className: "font-semibold text-lg" }),
+        tray.button(VS_PAGE_TEXT[lang].openSettings, {
+            intent: "primary",
+            size: "sm",
+            onClick: vsTrayState.ctx.eventHandler("vs-open-settings", () => vsOpenSettings()),
+        }),
+    ]
+}
+
 // Modules call this when they find a part of Seanime's page they work with, so the settings page
 // can show whether everything still works after a Seanime update.
 function vsHealth(name) {
@@ -170,6 +206,7 @@ const VS_CHANGES = {
         "Season Switcher spricht jetzt alle 5 Sprachen",
         "Status-Bereich zeigt, ob nach einem Seanime-Update noch alles gefunden wird",
         "1.1.1: Farbwahl als kleines Fenster mit ×, Seanime bleibt dabei bedienbar; AniList-Anfragen in kleinen Portionen, damit nichts hängt",
+        "1.1.2: Das Symbol oben (Tray) hat jetzt den Knopf „Einstellungen öffnen“; „Aktualisieren“ meldet sich, wenn es fertig ist",
     ],
     en: [
         "Colour schemes: red, purple, blue or your own colours, picked on first start",
@@ -178,6 +215,7 @@ const VS_CHANGES = {
         "Season Switcher now speaks all 5 languages",
         "Status section shows whether everything is still found after a Seanime update",
         "1.1.1: colour picker is a small window with ×, Seanime stays usable; AniList requests in small batches so nothing hangs",
+        "1.1.2: The tray icon at the top now has an \"Open settings\" button; \"Refresh\" tells you when it is done",
     ],
 }
 
@@ -229,6 +267,7 @@ const VS_PAGE_TEXT = {
             episodes: "Folgenliste",
             stream: "Stream-Ansicht",
         },
+        openSettings: "Einstellungen öffnen",
         oldSwitcher: "Die alte einzelne Erweiterung „Season Switcher“ scheint noch installiert zu sein. Deinstalliere sie unter Extensions, sonst läuft alles doppelt.",
     },
     en: {
@@ -251,6 +290,7 @@ const VS_PAGE_TEXT = {
             episodes: "Episode list",
             stream: "Stream view",
         },
+        openSettings: "Open settings",
         oldSwitcher: "The old separate \"Season Switcher\" extension still seems to be installed. Uninstall it under Extensions, otherwise everything runs twice.",
     },
 }
@@ -663,6 +703,7 @@ function vsSetupUI(ctx) {
     }
 
     // --- Modules
+    vsTrayState.ctx = ctx
     vsModules.forEach((m) => {
         if (settings["mod_" + m.name] === "off") return
         try {
@@ -672,4 +713,10 @@ function vsSetupUI(ctx) {
             console.error("viktempest-ui: " + m.name + " failed to start", e)
         }
     })
+
+    // No module filled the tray (e.g. Custom Ratings is off): a tray with just the settings button
+    if (!vsTrayState.tray) {
+        const tray = vsTray()
+        tray.render(() => tray.stack(vsTrayHeader(tray), { gap: 3 }))
+    }
 }

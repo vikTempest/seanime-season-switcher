@@ -27,7 +27,10 @@ Beim ersten Start passieren zwei Dinge:
 
 ## Einstellungen
 
-Alle Einstellungen stehen auf einer eigenen Seite: in der linken Seitenleiste von Seanime auf **„VikTempest Seanime UI“** klicken.
+Alle Einstellungen stehen auf einer eigenen Seite. So kommst du hin:
+
+- oben in der Leiste auf das Symbol der Erweiterung klicken und dann auf **„Einstellungen öffnen“**, oder
+- in der linken Seitenleiste von Seanime auf **„VikTempest Seanime UI“** klicken. Direkt nach der Installation erscheint dieser Eintrag erst, wenn du die Seite einmal neu lädst (Strg+R).
 
 - **Theme:** Aus, Rot, Lila, Blau oder Eigene (Akzent- und Hintergrundfarbe frei wählbar). Wirkt sofort, ohne Speichern.
 - **Allgemein:** Sprache und jeden Teil einzeln an/aus
