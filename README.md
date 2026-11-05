@@ -8,7 +8,7 @@ Das gilt auch für die anderen Zeilen der Startseite, z. B. Genre-Zeilen wie „
 
 Deine Listen bleiben unverändert: Jede Staffel bleibt auf AniList ein eigener Eintrag, das Plugin ändert nichts an deinem Konto.
 
-**Infoseite:** Klickst du auf eine Serie, öffnet sich die Seite mit Infos und allen Folgen (Bild, Titel, Beschreibung), statt sofort einen Stream zu laden. Die Quellen-Umschaltung (Local library, Online streaming usw.) blendet das Plugin aus. Erst ein Klick auf eine Folge startet den Online-Stream genau dieser Folge. Dafür springt die Seite einmal kurz über die Startseite, weil Seanime die Ansicht nur beim Öffnen einer Seite wählt. Mit „Zurück“ landest du danach auf der Startseite. Beim ersten Start fragt Seanime einmal, ob das Plugin die Einstellung „Default episode source“ auf den Folgen-Tab setzen darf. Erlaubst du das, öffnet jede Anime-Seite direkt mit der Folgenliste, ohne Umweg und Flackern. Lehnst du ab, versucht das Plugin es weiter über den Umweg über die Startseite.
+**Infoseite:** Klickst du auf eine Serie, öffnet sich die Seite mit Infos und allen Folgen (Bild, Titel, Beschreibung), statt sofort einen Stream zu laden. Die Quellen-Umschaltung (Local library, Online streaming usw.) blendet das Plugin aus. Erst ein Klick auf eine Folge startet den Online-Stream genau dieser Folge. Dafür lädt die Seite einmal kurz neu, weil Seanime die Ansicht nur beim Öffnen einer Seite wählt. Mit „Zurück“ landest du danach wieder in der Folgenliste. Bei Debrid- oder Torrent-Streaming (Einstellung „Womit Folgen abgespielt werden“) öffnet der Klick die jeweilige Ansicht, dort wählst du die Folge dann aus. Beim ersten Start fragt Seanime einmal, ob das Plugin die Einstellung „Default episode source“ auf den Folgen-Tab setzen darf. Erlaubst du das, öffnet jede Anime-Seite direkt mit der Folgenliste, ohne Umweg und Flackern. Lehnst du ab, öffnet das Plugin den Folgen-Tab mit einem kurzen Neuladen.
 
 Im Folgen-Tab fehlt die große „Weiterschauen“-Reihe oben. Stattdessen trägt die nächste Folge ein „▶ Weiterschauen“, gesehene Folgen ein kleines „✓ Gesehen“ und die zuletzt angefangene Folge einen Fortschrittsbalken mit den geschauten Minuten. Alle anderen bleiben ohne Markierung.
 
@@ -37,6 +37,7 @@ In Seanime unter **Extensions → Season Switcher → Preferences**:
 - **Welche Karte pro Serie:** erste Staffel (Standard) oder neueste Staffel
 - **Anime-Seiten mit Folgenliste öffnen:** Ja (Standard) oder Nein
 - **Folge anklicken startet Online-Stream:** Ja (Standard) oder Nein (für Folgen in der „Local library“-Ansicht)
+- **Womit Folgen abgespielt werden:** Online streaming (Standard), Debrid streaming oder Torrent streaming
 
 ## Installation
 

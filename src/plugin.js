@@ -190,6 +190,7 @@ function init() {
                 watched: "✓ Gesehen",
                 next: "▶ Weiterschauen",
                 minutes: "{0} min geschaut",
+                playFailed: "Der Stream konnte nicht geöffnet werden. Ist Online-Streaming in den Einstellungen aktiv?",
                 defaultSet: "Season Switcher: Anime-Seiten öffnen ab jetzt mit der Folgenliste.",
             },
             en: {
@@ -201,6 +202,7 @@ function init() {
                 watched: "✓ Watched",
                 next: "▶ Continue",
                 minutes: "{0} min watched",
+                playFailed: "Could not open the stream. Is online streaming enabled in the settings?",
                 defaultSet: "Season Switcher: anime pages now open on the episode list.",
             },
         }
@@ -709,15 +711,35 @@ function init() {
         // address. The back button then leads to the anime's info page.
         function reopenEntry(mediaId, params) {
             const id = String(mediaId)
-            ctx.screen.navigateTo("/entry", { id: "0" + id, tab: INFO_TAB })
+            const q = { id: id }
+            Object.keys(params).forEach((k) => q[k] = String(params[k]))
+            const pending = { rawId: "0" + id, q: q }
+            state.pending = pending
+            ctx.screen.navigateTo("/entry", { id: pending.rawId, tab: INFO_TAB })
+            // Normally continued in onPage once Seanime shows the "0<id>" address
+            ctx.setTimeout(() => finishReopen(pending), 3000)
+        }
+
+        function finishReopen(pending) {
+            if (state.pending !== pending) return
+            state.pending = null
+            ctx.screen.navigateTo("/entry", pending.q)
+            if (pending.q.tab !== "onlinestream") return
+            // Tell the user when Seanime didn't open the stream, instead of silently doing nothing
             ctx.setTimeout(() => {
-                const q = { id: id }
-                Object.keys(params).forEach((k) => q[k] = String(params[k]))
-                ctx.screen.navigateTo("/entry", q)
-            }, 150)
+                ctx.dom.queryOne(ONLINE_VIEW).then((el) => {
+                    if (!el) ctx.toast.warning(t("playFailed"))
+                }).catch(() => {})
+            }, 4000)
         }
 
         function playEpisode(mediaId, episodeNumber) {
+            const method = pref("playMethod", "onlinestream")
+            if (method === "debridstream" || method === "torrentstream") {
+                // These views have no "open episode N" address; open them so the episode can be picked there
+                reopenEntry(mediaId, { tab: method })
+                return
+            }
             reopenEntry(mediaId, { tab: "onlinestream", episode: episodeNumber })
         }
 
@@ -882,6 +904,12 @@ function init() {
         }
 
         function onPage(pathname, searchParams) {
+            const pending = state.pending
+            if (pending && pathname === "/entry" && String((searchParams && searchParams.id) || "") === pending.rawId) {
+                // Seanime has switched to "0<id>"; give it a moment to reset the view, then go on
+                ctx.setTimeout(() => finishReopen(pending), 100)
+                return
+            }
             const prev = state.loc
             state.loc = {
                 pathname: pathname,

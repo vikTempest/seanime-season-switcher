@@ -3,7 +3,7 @@ d=sys.argv[1]
 m={
  "id":"viktempest-season-switcher",
  "name":"Season Switcher",
- "version":"1.7.2",
+ "version":"1.7.3",
  "manifestURI":"https://raw.githubusercontent.com/vikTempest/seanime-season-switcher/main/season-switcher.json",
  "website":"https://github.com/vikTempest/seanime-season-switcher",
  "language":"javascript",
@@ -19,7 +19,8 @@ m={
   {"type":"select","name":"mergeLibrary","label":"Merge seasons on the home page / Staffeln auf der Startseite zusammenfassen","default":"yes","options":[{"value":"yes","label":"Yes / Ja"},{"value":"no","label":"No / Nein"}]},
   {"type":"select","name":"mergeKeep","label":"Card to show per series / Welche Karte pro Serie","default":"first","options":[{"value":"first","label":"First season / Erste Staffel"},{"value":"latest","label":"Latest season / Neueste Staffel"}]},
   {"type":"select","name":"infoPage","label":"Open anime pages on the episode list, stream only on click / Anime-Seiten mit Folgenliste öffnen, Stream erst beim Klick","default":"yes","options":[{"value":"yes","label":"Yes / Ja"},{"value":"no","label":"No / Nein"}]},
-  {"type":"select","name":"episodeClick","label":"Click an episode to start online streaming / Folge anklicken startet Online-Stream","default":"yes","options":[{"value":"yes","label":"Yes / Ja"},{"value":"no","label":"No / Nein"}]}
+  {"type":"select","name":"episodeClick","label":"Click an episode to start online streaming / Folge anklicken startet Online-Stream","default":"yes","options":[{"value":"yes","label":"Yes / Ja"},{"value":"no","label":"No / Nein"}]},
+  {"type":"select","name":"playMethod","label":"How episodes are played / Womit Folgen abgespielt werden","default":"onlinestream","options":[{"value":"onlinestream","label":"Online streaming"},{"value":"debridstream","label":"Debrid streaming"},{"value":"torrentstream","label":"Torrent streaming"}]}
  ]},
  "plugin":{"version":"1","permissions":{"scopes":["anilist","settings","storage"]}},
  "payload":open(d+"/src/plugin.js",encoding="utf8").read(),
