@@ -1,0 +1,260 @@
+/* =====================================================================
+   SEANIME · "NETFLIX"-THEME  (Desktop, ab 1024px)
+   Einfügen unter: Einstellungen → User Interface → Tab "CSS" → "Custom CSS"
+   Getestet gegen die Selektoren von Seanime Denshi 3.10.4
+   ===================================================================== */
+
+/* ---------- 1. Farben: tiefes Schwarz + Netflix-Rot ------------------ */
+:root, .dark, [data-mode=dark] {
+  /* Rot-Skala (ersetzt das Seanime-Lila überall: Buttons, Fortschritt, Links) */
+  --color-brand-50:  255 235 236 !important;
+  --color-brand-100: 255 214 216 !important;
+  --color-brand-200: 255 168 172 !important;
+  --color-brand-300: 255 92 100  !important;
+  --color-brand-400: 246 50 60   !important;
+  --color-brand-500: 229 9 20    !important;  /* #E50914 */
+  --color-brand-600: 200 8 18    !important;
+  --color-brand-700: 166 6 15    !important;
+  --color-brand-800: 128 5 12    !important;
+  --color-brand-900: 92 4 9      !important;
+  --color-brand-950: 56 2 5      !important;
+
+  /* Flächen */
+  --background: #0f0f0f !important;
+  --paper: #181818 !important;
+  --paper-lighter: #1f1f1f !important;
+  --media-card-popup-background: #181818 !important;
+  --hover-from-background-color: #232323 !important;
+  --border: rgba(255,255,255,.08) !important;
+  --muted: rgba(255,255,255,.55) !important;
+  --muted-highlight: rgba(255,255,255,.75) !important;
+  --subtle: rgba(255,255,255,.05) !important;
+  --subtle-highlight: rgba(255,255,255,.09) !important;
+  --ring: #e50914 !important;
+  --radius: .375rem;
+  --radius-md: .375rem;
+
+  --nf-red: #e50914;
+  --nf-ease: cubic-bezier(.2,.8,.2,1);
+}
+
+html, body { background: var(--background) !important; }
+body { -webkit-font-smoothing: antialiased; letter-spacing: -.005em; }
+::selection { background: rgba(229,9,20,.55); color: #fff; }
+
+/* ---------- 2. Typografie: kräftige Netflix-Überschriften ------------ */
+[data-main-layout-content] h1,
+[data-main-layout-content] h2 {
+  font-weight: 800;
+  letter-spacing: -.02em;
+}
+[data-main-layout-content] h3,
+[data-main-layout-content] h4 {
+  font-weight: 700;
+  letter-spacing: -.01em;
+  color: #e5e5e5;
+}
+
+/* ---------- 3. Scrollbalken: dünn & unauffällig --------------------- */
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: rgba(255,255,255,.14); border-radius: 8px; }
+::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,.28); }
+
+/* ---------- 4. Seitenleiste ----------------------------------------- */
+[data-sidebar-navbar-vertical-menu] [data-vertical-menu-item-link],
+[data-sidebar-navbar-vertical-menu] [data-vertical-menu-item-button] {
+  position: relative;
+  transition: color .2s var(--nf-ease), background-color .2s var(--nf-ease);
+}
+[data-vertical-menu-item-link][data-current=true]::before {
+  content: "";
+  position: absolute; left: -2px; top: 22%; bottom: 22%;
+  width: 3px; border-radius: 3px;
+  background: var(--nf-red);
+  box-shadow: 0 0 12px rgba(229,9,20,.7);
+}
+[data-vertical-menu-item-link][data-current=true] { color: #fff !important; }
+
+/* Obere Leiste: leicht durchsichtig mit Blur wie bei Netflix */
+[data-top-navbar] {
+  background: linear-gradient(180deg, rgba(0,0,0,.75) 0%, rgba(0,0,0,0) 100%);
+}
+
+/* ---------- 5. Anime-Karten (Poster) -------------------------------- */
+[data-media-entry-card-body] {
+  border-radius: 6px !important;
+  overflow: hidden;
+  box-shadow: 0 4px 14px rgba(0,0,0,.45);
+  transition: transform .35s var(--nf-ease), box-shadow .35s var(--nf-ease);
+}
+[data-media-entry-card-container]:hover [data-media-entry-card-body] {
+  transform: translateY(-4px);
+  box-shadow: 0 14px 30px rgba(0,0,0,.7), 0 0 0 2px rgba(255,255,255,.85);
+}
+[data-media-entry-card-body-image] {
+  transition: transform .6s var(--nf-ease) !important;
+}
+[data-media-entry-card-title-section-title] {
+  font-weight: 600 !important;
+  color: #e5e5e5;
+}
+[data-media-entry-card-title-section-year-season] { color: var(--muted); }
+
+/* Hover-Popup: wie die Netflix-Vorschaukarte */
+[data-media-entry-card-hover-popup] {
+  border-radius: 8px !important;
+  border: none !important;
+  background: #181818 !important;
+  box-shadow: 0 20px 50px rgba(0,0,0,.85) !important;
+  overflow: hidden;
+}
+[data-media-entry-card-hover-popup-banner-container] { border-radius: 8px 8px 0 0 !important; }
+[data-media-entry-card-hover-popup-title] { font-weight: 700 !important; }
+
+/* Fortschritts-Badges dezenter */
+[data-media-entry-progress-badge] {
+  background: rgba(0,0,0,.72) !important;
+  backdrop-filter: blur(6px);
+}
+[data-media-entry-score-badge] { backdrop-filter: blur(6px); }
+
+/* ---------- 6. Episoden-Karten ("Weiterschauen") -------------------- */
+[data-episode-card-image-container] {
+  border-radius: 6px !important;
+  box-shadow: 0 6px 18px rgba(0,0,0,.5);
+  transition: transform .35s var(--nf-ease), box-shadow .35s var(--nf-ease);
+}
+[data-episode-card]:hover [data-episode-card-image-container] {
+  transform: scale(1.04);
+  box-shadow: 0 16px 34px rgba(0,0,0,.75), 0 0 0 2px rgba(255,255,255,.85);
+}
+[data-episode-card-image] { transition: transform .6s var(--nf-ease) !important; }
+[data-episode-card]:hover [data-episode-card-image] { transform: scale(1.05); }
+[data-episode-card-title] { font-weight: 700 !important; letter-spacing: -.01em; }
+[data-episode-card-progress-bar-container] [role=progressbar],
+[data-episode-card-progress-bar-container] > div { border-radius: 0 !important; }
+
+[data-episode-grid-item] { border-radius: 6px; transition: background-color .2s; }
+[data-episode-grid-item-image-container] { border-radius: 6px !important; overflow: hidden; }
+
+/* ---------- 7. Anime-Detailseite: großes Kino-Banner ---------------- */
+[data-media-page-header-banner] {
+  -webkit-mask-image: none !important;
+  mask-image: none !important;
+}
+[data-media-page-header-banner-left-gradient] {
+  background: linear-gradient(90deg, var(--background) 0%, rgba(15,15,15,.85) 25%, rgba(15,15,15,0) 65%) !important;
+  opacity: 1 !important;
+}
+[data-media-page-header-banner-bottom-gradient] {
+  background: linear-gradient(0deg, var(--background) 0%, rgba(15,15,15,.6) 35%, rgba(15,15,15,0) 70%) !important;
+}
+[data-media-page-header-entry-details-title-container] h1,
+[data-media-page-header-entry-details-title-container] p:first-child {
+  font-weight: 900 !important;
+  letter-spacing: -.03em;
+  text-shadow: 0 2px 18px rgba(0,0,0,.6);
+}
+[data-media-page-header-entry-details-cover-image] {
+  border-radius: 6px !important;
+  box-shadow: 0 18px 40px rgba(0,0,0,.7);
+}
+[data-media-entry-genres-list-item] {
+  background: transparent !important;
+  border: 1px solid rgba(255,255,255,.25) !important;
+  border-radius: 999px !important;
+}
+
+/* Startseiten-/Bibliotheks-Banner weicher ausblenden */
+[data-library-header-banner-bottom-gradient],
+[data-custom-library-banner-bottom-gradient] {
+  background: linear-gradient(0deg, var(--background) 0%, rgba(15,15,15,0) 100%) !important;
+}
+
+/* ---------- 8. Buttons, Tabs, Eingaben ------------------------------ */
+button, a { transition: background-color .18s, color .18s, transform .12s; }
+button:active { transform: scale(.98); }
+
+[data-anime-entry-page-tabs-container] [role=tab][data-state=active],
+[data-settings-page-tabs] [role=tab][data-state=active] {
+  color: #fff !important;
+  box-shadow: inset 0 -2px 0 var(--nf-red);
+}
+
+input:focus, textarea:focus, select:focus { --tw-ring-color: rgba(229,9,20,.6) !important; }
+
+/* Popover, Menüs, Dialoge */
+[role=dialog], [role=menu], [data-radix-popper-content-wrapper] > * {
+  border-color: rgba(255,255,255,.08) !important;
+}
+[role=dialog] { box-shadow: 0 30px 80px rgba(0,0,0,.85) !important; }
+
+/* Toasts */
+[data-sonner-toast] {
+  background: #1f1f1f !important;
+  border: 1px solid rgba(255,255,255,.08) !important;
+}
+
+/* ---------- 9. "Weiterschauen" kompakter ---------------------------- */
+[data-continue-watching-container] .UI-Carousel__item {
+  flex-basis: 25% !important;              /* 4 Karten */
+}
+@media (min-width: 1536px) {
+  [data-continue-watching-container] .UI-Carousel__item { flex-basis: 20% !important; }      /* 5 */
+}
+@media (min-width: 2000px) {
+  [data-continue-watching-container] .UI-Carousel__item { flex-basis: 16.666% !important; }  /* 6 */
+}
+[data-continue-watching-container] [data-episode-card-title] { font-size: .9rem !important; }
+[data-continue-watching-container] [data-episode-card-subtitle],
+[data-continue-watching-container] [data-episode-card-meta-text] { font-size: .8rem !important; }
+
+/* ---------- 10. Ziehbarer Slider statt Klick-Punkte ----------------- */
+/* Die Karussells scrollen jetzt nativ: unten erscheint ein schmaler
+   Balken, den man mit der Maus ziehen kann. Die Punkte sind ausgeblendet. */
+.UI-Carousel__content {
+  overflow-x: auto !important;
+  overflow-y: hidden !important;
+  scroll-behavior: smooth;
+  padding-bottom: 14px;                     /* Platz für den Balken */
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255,255,255,.25) transparent;
+}
+.UI-Carousel__content > .UI-Carousel__innerContent {
+  transform: none !important;               /* alte Klick-Animation aus */
+}
+.UI-Carousel__content::-webkit-scrollbar { height: 6px; }
+.UI-Carousel__content::-webkit-scrollbar-track {
+  background: rgba(255,255,255,.06);
+  border-radius: 6px;
+  margin: 0 1rem;
+}
+.UI-Carousel__content::-webkit-scrollbar-thumb {
+  background: rgba(255,255,255,.3);
+  border-radius: 6px;
+}
+.UI-Carousel__content:hover::-webkit-scrollbar { height: 9px; }
+.UI-Carousel__content::-webkit-scrollbar-thumb:hover,
+.UI-Carousel__content::-webkit-scrollbar-thumb:active { background: var(--nf-red); }
+
+/* Punkte und Pfeile über dem Karussell ausblenden */
+.UI-Carousel__root > .absolute.right-0 { display: none !important; }
+
+/* ---------- 11. Tablets quer & Touch-Geräte (ab 1024px, ohne Maus) -- */
+/* Kein "hängenbleibender" Hover-Zoom nach dem Antippen, Karussells
+   werden gewischt statt am Balken gezogen. */
+@media (hover: none) {
+  [data-media-entry-card-container]:hover [data-media-entry-card-body] {
+    transform: none;
+    box-shadow: 0 4px 14px rgba(0,0,0,.45);
+  }
+  [data-episode-card]:hover [data-episode-card-image-container] {
+    transform: none;
+    box-shadow: 0 6px 18px rgba(0,0,0,.5);
+  }
+  [data-episode-card]:hover [data-episode-card-image] { transform: none; }
+  .UI-Carousel__content { padding-bottom: 0; scrollbar-width: none; }
+  .UI-Carousel__content::-webkit-scrollbar { display: none; }
+  input, select, textarea { font-size: 16px !important; }
+}
