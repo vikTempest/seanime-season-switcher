@@ -10,7 +10,7 @@ Deine Listen bleiben unverändert: Jede Staffel bleibt auf AniList ein eigener E
 
 **Infoseite:** Klickst du auf eine Serie, öffnet sich die Seite mit Infos und allen Folgen (Bild, Titel, Beschreibung), statt sofort einen Stream zu laden. Die Quellen-Umschaltung (Local library, Online streaming usw.) blendet das Plugin aus. Erst ein Klick auf eine Folge startet den Online-Stream genau dieser Folge. Dafür springt die Seite einmal kurz über die Startseite, weil Seanime die Ansicht nur beim Öffnen einer Seite wählt. Mit „Zurück“ landest du danach auf der Startseite. Beim ersten Start fragt Seanime einmal, ob das Plugin die Einstellung „Default episode source“ auf den Folgen-Tab setzen darf. Erlaubst du das, öffnet jede Anime-Seite direkt mit der Folgenliste, ohne Umweg und Flackern. Lehnst du ab, versucht das Plugin es weiter über den Umweg über die Startseite.
 
-Im Folgen-Tab fehlt die große „Weiterschauen“-Reihe oben. Gesehene Folgen bekommen ein kleines „✓ Gesehen“, die zuletzt angefangene Folge einen Fortschrittsbalken mit den geschauten Minuten, alle anderen nichts.
+Im Folgen-Tab fehlt die große „Weiterschauen“-Reihe oben. Stattdessen trägt die nächste Folge ein „▶ Weiterschauen“, gesehene Folgen ein kleines „✓ Gesehen“ und die zuletzt angefangene Folge einen Fortschrittsbalken mit den geschauten Minuten. Alle anderen bleiben ohne Markierung.
 
 ## Auf dem Handy
 

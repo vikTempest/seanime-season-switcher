@@ -59,11 +59,11 @@ function init() {
                         if (c && c.time && (Date.now() - c.time) < CACHE_MS) rel[id] = c.rel
                         else if (missing.indexOf(id) === -1) missing.push(id)
                     })
-                    for (let i = 0; i < missing.length; i += 50) {
-                        const chunk = missing.slice(i, i + 50)
+                    for (let i = 0; i < missing.length; i += 25) {
+                        const chunk = missing.slice(i, i + 25)
                         try {
                             const res = JSON.parse(JSON.stringify($anilist.customQuery({
-                                query: "query ($ids: [Int]) { Page(perPage: 50) { media(id_in: $ids, type: ANIME) { id startDate { year month day } relations { edges { relationType node { id type } } } } } }",
+                                query: "query ($ids: [Int]) { Page(perPage: 25) { media(id_in: $ids, type: ANIME) { id startDate { year month day } relations { edges { relationType node { id type } } } } } }",
                                 variables: { ids: chunk },
                             }, "")))
                             const page = (res && (res.Page || (res.data && res.data.Page))) || {}
@@ -188,6 +188,7 @@ function init() {
                 formats: { MOVIE: "Film", OVA: "OVA", ONA: "ONA", SPECIAL: "Special", TV_SHORT: "Kurzserie", MUSIC: "Musik" },
                 episodesTab: "Folgen",
                 watched: "✓ Gesehen",
+                next: "▶ Weiterschauen",
                 minutes: "{0} min geschaut",
                 defaultSet: "Season Switcher: Anime-Seiten öffnen ab jetzt mit der Folgenliste.",
             },
@@ -198,6 +199,7 @@ function init() {
                 formats: { MOVIE: "Movie", OVA: "OVA", ONA: "ONA", SPECIAL: "Special", TV_SHORT: "Short", MUSIC: "Music" },
                 episodesTab: "Episodes",
                 watched: "✓ Watched",
+                next: "▶ Continue",
                 minutes: "{0} min watched",
                 defaultSet: "Season Switcher: anime pages now open on the episode list.",
             },
@@ -423,13 +425,21 @@ function init() {
                     if (c && c.time && (Date.now() - c.time) < REL_CACHE_MS) rel[id] = c
                     else if (missing.indexOf(id) === -1) missing.push(id)
                 })
-                for (let i = 0; i < missing.length; i += 50) {
-                    const res = plain($anilist.customQuery({
-                        query: "query ($ids: [Int]) { Page(perPage: 50) { media(id_in: $ids, type: ANIME) { id format season seasonYear startDate { year month day } " +
-                            "title { romaji english native } coverImage { extraLarge large } " +
-                            "relations { edges { relationType node { id type } } } } } }",
-                        variables: { ids: missing.slice(i, i + 50) },
-                    }, ""))
+                for (let i = 0; i < missing.length; i += 25) {
+                    let res = null
+                    try {
+                        res = plain($anilist.customQuery({
+                            query: "query ($ids: [Int]) { Page(perPage: 25) { media(id_in: $ids, type: ANIME) { id format season seasonYear startDate { year month day } " +
+                                "title { romaji english native } coverImage { extraLarge large } " +
+                                "relations { edges { relationType node { id type } } } } } }",
+                            variables: { ids: missing.slice(i, i + 25) },
+                        }, ""))
+                    }
+                    catch (e) {
+                        // e.g. AniList's request limit: use what we have, the rest comes next time
+                        console.warn("season-switcher: could not load relations", e)
+                        continue
+                    }
                     const page = (res && (res.Page || (res.data && res.data.Page))) || {}
                     ;(page.media || []).forEach((m) => {
                         const r = []
@@ -614,10 +624,12 @@ function init() {
         // Episodes tab: no big "continue watching" carousel above the list, watched episodes keep
         // their picture but get a small check mark, and the last started episode a progress bar
         const TAB_VIEW = "[data-anime-entry-page-plugin-episode-tab-view]"
-        const EPISODES_CSS = " " + TAB_VIEW + " :has(> * [data-episode-card]):not(:has([data-episode-list-grid])) { display: none !important; }" +
+        const EPISODES_CSS = " " + TAB_VIEW + " :has([data-episode-card]):not(:has([data-episode-grid-item])) { display: none !important; }" +
             " " + TAB_VIEW + " [data-episode-grid-item][data-is-watched=\"true\"] .opacity-25 { opacity: .55 !important; }" +
             " .vtss-watched { position: absolute; top: .35rem; left: .35rem; z-index: 4; padding: .1rem .45rem; border-radius: .4rem;" +
             " background: rgba(0,0,0,.7); color: #fff; font-size: .75rem; font-weight: 600; pointer-events: none; }" +
+            " .vtss-next { position: absolute; top: .35rem; left: .35rem; z-index: 4; padding: .1rem .5rem; border-radius: .4rem;" +
+            " background: var(--brand, #e50914); color: #fff; font-size: .75rem; font-weight: 700; pointer-events: none; }" +
             " .vtss-progress { position: absolute; left: 0; right: 0; bottom: 0; z-index: 4; height: 4px; background: rgba(255,255,255,.2); pointer-events: none; }" +
             " .vtss-progress > div { height: 100%; background: var(--brand, #e50914); }" +
             " .vtss-progress-label { position: absolute; bottom: .4rem; right: .35rem; z-index: 4; padding: .1rem .45rem; border-radius: .4rem;" +
@@ -643,12 +655,13 @@ function init() {
         function ensureStyle() {
             if (rows.styled) return
             rows.styled = true
-            ctx.dom.queryOne("#vtss-style").then((existing) => {
+            ctx.dom.queryOne("[data-vtss-style]").then((existing) => {
                 if (existing) return
                 return Promise.all([ctx.dom.createElement("style"), ctx.dom.queryOne("body")]).then((res) => {
                     const style = res[0], body = res[1]
                     if (!style || !body) return
-                    style.setAttribute("id", "vtss-style")
+                    // Seanime finds plugin elements by their id, so the id must stay as it is
+                    style.setAttribute("data-vtss-style", "1")
                     // Popup and badges still describe the later season, so they are hidden on
                     // cards that show the first season
                     style.setText([
@@ -749,7 +762,19 @@ function init() {
 
         // Watched mark and progress on the episodes in the Episodes tab
         const TAB_EPISODE = TAB_VIEW + " [data-episode-grid-item][data-episode-number]"
-        const marks = { done: {} }
+        const marks = { done: {}, progress: {} }
+
+        // Your AniList progress for the anime on this page (number of watched episodes)
+        function listProgress(mediaId) {
+            if (marks.progress[mediaId]) return marks.progress[mediaId]
+            marks.progress[mediaId] = ctx.dom.queryOne("[data-anime-entry-page]")
+                .then((page) => page ? page.getAttribute("data-anime-entry-list-data") : null)
+                .then((json) => {
+                    try { return (JSON.parse(String(json || "{}")) || {}).progress || 0 } catch (e) { return 0 }
+                })
+                .catch(() => 0)
+            return marks.progress[mediaId]
+        }
 
         function markEpisode(item) {
             const attrs = item.attributes || {}
@@ -760,37 +785,41 @@ function init() {
             const mediaId = parseInt(String(attrs["data-media-id"] || state.mediaId || ""), 10)
             const episodeNumber = parseInt(String(attrs["data-episode-number"] || ""), 10)
 
-            let progress = null
+            let history = null
             if (!watched && mediaId && episodeNumber) {
                 try {
                     const h = ctx.continuity.getWatchHistoryItem(mediaId)
-                    if (h && h.episodeNumber === episodeNumber && h.currentTime > 30 && h.duration > 0) progress = h
+                    if (h && h.episodeNumber === episodeNumber && h.currentTime > 30 && h.duration > 0) history = h
                 }
                 catch (e) {}
             }
 
-            item.queryOne("[data-episode-grid-item-image-container]").then((image) => {
+            Promise.all([
+                item.queryOne("[data-episode-grid-item-image-container]"),
+                watched || !mediaId ? Promise.resolve(-1) : listProgress(mediaId),
+            ]).then((res) => {
+                const image = res[0], progress = res[1]
                 if (!image) return
-                return image.query(".vtss-watched, .vtss-progress, .vtss-progress-label").then((old) => {
+                // "Continue watching" is just a mark on the next episode instead of the big row
+                const isNext = !watched && progress >= 0 && episodeNumber === progress + 1
+                return image.query(".vtss-watched, .vtss-next, .vtss-progress, .vtss-progress-label").then((old) => {
                     ;(old || []).forEach((el) => el.remove())
-                    if (watched) {
-                        return ctx.dom.createElement("div").then((badge) => {
-                            badge.setAttribute("class", "vtss-watched")
-                            badge.setText(t("watched"))
-                            image.append(badge)
-                        })
+                    const add = []
+                    if (watched) add.push(["vtss-watched", t("watched")])
+                    else if (isNext) add.push(["vtss-next", t("next")])
+                    if (history) {
+                        const pct = Math.max(2, Math.min(100, Math.round(history.currentTime / history.duration * 100)))
+                        add.push(["vtss-progress", null, "<div style=\"width:" + pct + "%\"></div>"])
+                        add.push(["vtss-progress-label", t("minutes", Math.max(1, Math.round(history.currentTime / 60)))])
                     }
-                    if (progress) {
-                        const pct = Math.max(2, Math.min(100, Math.round(progress.currentTime / progress.duration * 100)))
-                        return Promise.all([ctx.dom.createElement("div"), ctx.dom.createElement("div")]).then((els) => {
-                            els[0].setAttribute("class", "vtss-progress")
-                            els[0].setInnerHTML("<div style=\"width:" + pct + "%\"></div>")
-                            els[1].setAttribute("class", "vtss-progress-label")
-                            els[1].setText(t("minutes", Math.max(1, Math.round(progress.currentTime / 60))))
-                            image.append(els[0])
-                            image.append(els[1])
+                    return Promise.all(add.map(() => ctx.dom.createElement("div"))).then((els) => {
+                        els.forEach((el, k) => {
+                            el.setAttribute("class", add[k][0])
+                            if (add[k][1]) el.setText(add[k][1])
+                            if (add[k][2]) el.setInnerHTML(add[k][2])
+                            image.append(el)
                         })
-                    }
+                    })
                 })
             }).catch(() => {})
         }
@@ -877,6 +906,7 @@ function init() {
                 rows.swapped = {}
                 episodes.done = {}
                 marks.done = {}
+                marks.progress = {}
                 scheduleMergeRows()
             }
             const id = pathname === "/entry" ? parseInt(String((searchParams && searchParams.id) || ""), 10) : 0
