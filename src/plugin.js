@@ -190,6 +190,7 @@ function init() {
                 watched: "✓ Gesehen",
                 next: "▶ Weiterschauen",
                 minutes: "{0} min geschaut",
+                continueWatching: "Weiterschauen",
                 playFailed: "Der Stream konnte nicht geöffnet werden. Ist Online-Streaming in den Einstellungen aktiv?",
                 defaultSet: "Season Switcher: Anime-Seiten öffnen ab jetzt mit der Folgenliste.",
             },
@@ -202,6 +203,7 @@ function init() {
                 watched: "✓ Watched",
                 next: "▶ Continue",
                 minutes: "{0} min watched",
+                continueWatching: "Continue watching",
                 playFailed: "Could not open the stream. Is online streaming enabled in the settings?",
                 defaultSet: "Season Switcher: anime pages now open on the episode list.",
             },
@@ -635,7 +637,11 @@ function init() {
             " .vtss-progress { position: absolute; left: 0; right: 0; bottom: 0; z-index: 4; height: 4px; background: rgba(255,255,255,.2); pointer-events: none; }" +
             " .vtss-progress > div { height: 100%; background: var(--brand, #e50914); }" +
             " .vtss-progress-label { position: absolute; bottom: .4rem; right: .35rem; z-index: 4; padding: .1rem .45rem; border-radius: .4rem;" +
-            " background: rgba(0,0,0,.7); color: #fff; font-size: .75rem; font-weight: 600; pointer-events: none; }"
+            " background: rgba(0,0,0,.7); color: #fff; font-size: .75rem; font-weight: 600; pointer-events: none; }" +
+            " .vtss-continue { margin: 0 0 1.75rem; }" +
+            " .vtss-continue-label { font-size: 1.15rem; font-weight: 600; margin: 0 0 .75rem; }" +
+            " .vtss-continue-item { cursor: pointer; }" +
+            " .vtss-continue [data-vtss-copy-action] { display: none !important; }"
 
         // Season dropdown. On phones (below 1024px, where Seanime centers the title) it is centered,
         // fills the width and uses 16px text so iOS does not zoom in when it is tapped.
@@ -705,18 +711,18 @@ function init() {
         const episodes = { done: {} }
 
         // Seanime only picks the view (episode list, online streaming, ...) when an anime page
-        // opens or its id in the address changes. Plugins can't leave to the home page
-        // (navigateTo ignores "/"), so the plugin briefly opens the same anime as "0<id>"
-        // (Seanime reads it as the same number) and then the real id with the view in the
-        // address. The back button then leads to the anime's info page.
+        // opens or its id in the address changes. Plugins can't go to the home page directly
+        // (navigateTo ignores "/"), and Seanime turns "0123" into 123, so the plugin opens the
+        // anime page without an id: Seanime then goes to the home page by itself, which resets
+        // the view. Once that happened, the plugin opens the anime with the view in the address.
         function reopenEntry(mediaId, params) {
             const id = String(mediaId)
             const q = { id: id }
             Object.keys(params).forEach((k) => q[k] = String(params[k]))
-            const pending = { rawId: "0" + id, q: q }
+            const pending = { marker: "vtss" + id + "x" + Date.now(), q: q }
             state.pending = pending
-            ctx.screen.navigateTo("/entry", { id: pending.rawId, tab: INFO_TAB })
-            // Normally continued in onPage once Seanime shows the "0<id>" address
+            ctx.screen.navigateTo("/entry", { vtss: pending.marker })
+            // Normally continued in onPage once Seanime has left the anime page
             ctx.setTimeout(() => finishReopen(pending), 3000)
         }
 
@@ -844,9 +850,75 @@ function init() {
                             if (add[k][2]) el.setInnerHTML(add[k][2])
                             image.append(el)
                         })
+                        if (isNext || history) scheduleContinue()
                     })
                 })
             }).catch(() => {})
+        }
+
+        // "Continue watching": the episode you stopped in (or the next one) as a single list
+        // entry above the list, in place of Seanime's big row of episode cards. It is a copy of
+        // that episode's list entry (Seanime opens the list on the page with the next episode).
+        const CAROUSEL = TAB_VIEW + " > :has([data-episode-card]):not(:has([data-episode-grid-item]))"
+        const cont = { timer: null, html: "" }
+
+        function scheduleContinue() {
+            if (cont.timer) cont.timer()
+            cont.timer = ctx.setTimeout(() => {
+                cont.timer = null
+                renderContinue()
+            }, 400)
+        }
+
+        function continueEpisode(mediaId) {
+            try {
+                const h = ctx.continuity.getWatchHistoryItem(mediaId)
+                if (h && h.episodeNumber && h.currentTime > 30 && h.duration > 0 && h.currentTime / h.duration < 0.9) {
+                    return Promise.resolve(h.episodeNumber)
+                }
+            }
+            catch (e) {}
+            return listProgress(mediaId).then((progress) => progress + 1)
+        }
+
+        function removeContinue() {
+            cont.html = ""
+            return ctx.dom.query(".vtss-continue").then((old) => (old || []).forEach((el) => el.remove())).catch(() => {})
+        }
+
+        function renderContinue() {
+            const mediaId = state.mediaId
+            if (!mediaId) return
+            continueEpisode(mediaId).then((ep) => {
+                if (state.mediaId !== mediaId) return
+                return Promise.all([
+                    ctx.dom.queryOne(TAB_EPISODE + "[data-episode-number=\"" + ep + "\"]"),
+                    ctx.dom.queryOne(CAROUSEL),
+                ]).then((res) => {
+                    const item = res[0], carousel = res[1]
+                    if (!item || !carousel) return removeContinue()
+                    return Promise.all([item.getProperty("outerHTML"), item.getParent()]).then((r) => {
+                        const html = String(r[0] || "").split("data-episode-grid-item").join("data-vtss-copy")
+                            .replace(/\sid="[^"]*"/g, "")
+                        if (!html) return
+                        return ctx.dom.query(".vtss-continue").then((old) => {
+                            if (old && old.length && cont.html === html) return
+                            ;(old || []).forEach((el) => el.remove())
+                            cont.html = html
+                            return (r[1] ? r[1].getProperty("className") : Promise.resolve("")).then((gridClass) => {
+                                return ctx.dom.createElement("div").then((panel) => {
+                                    panel.setAttribute("class", "vtss-continue")
+                                    panel.setInnerHTML(
+                                        "<div class=\"vtss-continue-label\">" + t("continueWatching") + "</div>" +
+                                        "<div class=\"vtss-continue-item " + String(gridClass || "") + "\">" + html + "</div>")
+                                    panel.addEventListener("click", () => playEpisode(mediaId, ep))
+                                    carousel.before(panel)
+                                })
+                            })
+                        })
+                    })
+                })
+            }).catch((e) => console.warn("season-switcher: continue panel", e))
         }
 
         // Returns true when the page is being replaced
@@ -905,10 +977,18 @@ function init() {
 
         function onPage(pathname, searchParams) {
             const pending = state.pending
-            if (pending && pathname === "/entry" && String((searchParams && searchParams.id) || "") === pending.rawId) {
-                // Seanime has switched to "0<id>"; give it a moment to reset the view, then go on
-                ctx.setTimeout(() => finishReopen(pending), 100)
-                return
+            if (pending) {
+                const marker = String((searchParams && searchParams.vtss) || "")
+                if (pathname === "/entry" && marker === pending.marker) {
+                    // Seanime has reset the view and is about to go to the home page by itself
+                    ctx.setTimeout(() => finishReopen(pending), 150)
+                    return
+                }
+                if (pathname === "/" || (pathname === "/entry" && !(searchParams && searchParams.id))) {
+                    // Seanime has left the anime page; now open it with the wanted view
+                    ctx.setTimeout(() => finishReopen(pending), 50)
+                    return
+                }
             }
             const prev = state.loc
             state.loc = {
@@ -971,6 +1051,7 @@ function init() {
             })
             ctx.dom.observe(TAB_EPISODE, (elements) => {
                 ;(elements || []).forEach(markEpisode)
+                if (elements && elements.length) scheduleContinue()
             })
             ctx.dom.observe(ONLINE_VIEW, (elements) => {
                 if (elements && elements.length) checkOnlineView()
