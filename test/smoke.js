@@ -76,6 +76,9 @@ function channel() {
     }
 }
 
+const trays = []
+const eventHandlers = {}
+
 function stub(name) {
     // Anything not modelled returns harmless values
     return new Proxy(function () {}, {
@@ -120,9 +123,17 @@ const ctx = {
         set(path, value) { this.values[path] = value; return Promise.resolve({}) },
     },
     continuity: { getWatchHistoryItem() { return null } },
-    eventHandler(key, fn) { return key },
+    eventHandler(key, fn) { eventHandlers[key] = fn; return key },
     fieldRef() { return { current: "", setValue() {}, onValueChange() {} } },
-    newTray() { return stub("tray") },
+    newTray(options) {
+        const t = { options, renderFn: null, count: 0,
+            render(fn) { this.renderFn = fn }, update() {}, onOpen() {}, onClose() {}, open() {}, close() {},
+            text: (text, o) => ({ type: "text", text }), button: (label, o) => ({ type: "button", label, onClick: o && o.onClick }),
+            stack: (items) => ({ type: "stack", items }), flex: (items) => ({ type: "flex", items }),
+            input: () => ({ type: "input" }), alert: (o) => ({ type: "alert", o }) }
+        trays.push(t)
+        return t
+    },
     newModal() { return stub("modal") },
     action: stub("action"),
 }
@@ -200,6 +211,16 @@ check("manifest", () => {
     assert.strictEqual(manifest.id, "viktempest-ui")
     assert.strictEqual(manifest.name, "VikTempest Seanime UI")
     assert.ok(/vikTempest-Seanime-UI/.test(manifest.manifestURI))
+})
+
+check("tray has one entry with an open-settings button", () => {
+    assert.strictEqual(trays.length, 1, "expected one tray, got " + trays.length)
+    const out = JSON.stringify(trays[0].renderFn())
+    assert.ok(out.includes("VikTempest Seanime UI") && out.includes("AniList Custom Ratings"), out)
+    eventHandlers["vs-open-settings"]()
+    const last = navigations[navigations.length - 1]
+    assert.strictEqual(last.path, "/webview")
+    assert.strictEqual(last.params.id, "viktempest-ui")
 })
 
 check("settings page sends fields, version and status", () => {

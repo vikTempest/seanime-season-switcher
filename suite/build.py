@@ -16,8 +16,9 @@ import re
 import sys
 
 ROOT = sys.argv[1] if len(sys.argv) > 1 else "."
-VERSION = "1.1.1"
+VERSION = "1.1.2"
 ID = "viktempest-ui"
+ICON = "https://raw.githubusercontent.com/vikTempest/custom-ratings-.5-options/main/icon.png"
 JSON_NAME = "viktempest-ui.json"
 
 
@@ -120,6 +121,8 @@ def indent(text):
 ui_callback = "\n".join([
     "(ctx) => {",
     indent("const VS_VERSION = " + json.dumps(VERSION)),
+    indent("const VS_EXT_ID = " + json.dumps(ID)),
+    indent("const VS_TRAY_ICON = " + json.dumps(ICON)),
     indent("const VS_THEME_CSS = " + json.dumps(theme_css, ensure_ascii=False)),
     "",
     indent(read("suite/settings.js").strip()),
@@ -164,7 +167,7 @@ m = {
     "description": "Season Switcher, AniList Custom Ratings and a theme with colour schemes (red, purple, blue or your own) in one extension. "
                    "All settings are on the \"VikTempest Seanime UI\" page in the sidebar. Languages: Deutsch, English, Español, Português, 日本語.",
     "author": "Vik",
-    "icon": "https://raw.githubusercontent.com/vikTempest/custom-ratings-.5-options/main/icon.png",
+    "icon": ICON,
     "lang": "multi",
     "plugin": {"version": "1", "permissions": {"scopes": ["anilist", "anilist-token", "database", "settings", "storage"]}},
     "payload": payload,

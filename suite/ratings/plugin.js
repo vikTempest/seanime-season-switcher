@@ -127,6 +127,7 @@ function init() {
                 traySetupAnime: "Set up for anime",
                 traySetupManga: "Set up for manga",
                 trayRefresh: "Refresh",
+                trayRefreshed: "Updated.",
             },
             de: {
                 anime: "Anime", manga: "Manga",
@@ -182,6 +183,7 @@ function init() {
                 traySetupAnime: "Für Anime einrichten",
                 traySetupManga: "Für Manga einrichten",
                 trayRefresh: "Aktualisieren",
+                trayRefreshed: "Aktualisiert.",
             },
             es: {
                 anime: "anime", manga: "manga",
@@ -237,6 +239,7 @@ function init() {
                 traySetupAnime: "Configurar para anime",
                 traySetupManga: "Configurar para manga",
                 trayRefresh: "Actualizar",
+                trayRefreshed: "Actualizado.",
             },
             pt: {
                 anime: "anime", manga: "mangá",
@@ -292,6 +295,7 @@ function init() {
                 traySetupAnime: "Configurar para anime",
                 traySetupManga: "Configurar para mangá",
                 trayRefresh: "Atualizar",
+                trayRefreshed: "Atualizado.",
             },
             ja: {
                 anime: "アニメ", manga: "マンガ",
@@ -347,6 +351,7 @@ function init() {
                 traySetupAnime: "アニメ用に設定",
                 traySetupManga: "マンガ用に設定",
                 trayRefresh: "更新",
+                trayRefreshed: "更新しました。",
             },
         }
 
@@ -1703,12 +1708,16 @@ function init() {
         // -----------------------------------------------------------------------------------------
         // Tray icon: shows that the plugin is running, how to use it and whether your account is ready
 
-        const tray = ctx.newTray({
+        // The tray is shared with the rest of VikTempest Seanime UI (title and settings button on top)
+        // (falls back to its own tray when the file is used on its own)
+        const trayOpts = {
             iconUrl: "https://raw.githubusercontent.com/vikTempest/custom-ratings-.5-options/main/icon.png",
             tooltipText: t("trayTitle"),
             withContent: true,
             width: "24rem",
-        })
+        }
+        const tray = typeof vsTray === "function" ? vsTray() : ctx.newTray(trayOpts)
+        const trayHeader = () => (typeof vsTrayHeader === "function" ? vsTrayHeader(tray) : [])
 
         const trayState = {
             loading: false,
@@ -1744,6 +1753,7 @@ function init() {
             }
             trayState.loading = false
             tray.update()
+            if (force && !trayState.error && trayState.loggedIn) ctx.toast.success(t("trayRefreshed"))
         }
 
         function traySetup(type) {
@@ -1767,10 +1777,10 @@ function init() {
         tray.onOpen(() => loadTray(false))
 
         tray.render(() => {
-            const items = [
-                tray.text(t("trayTitle"), { className: "font-semibold text-lg" }),
+            const items = trayHeader().concat([
+                tray.text(t("trayTitle"), { className: "font-semibold" }),
                 tray.text(t("trayHowTo"), { className: "text-sm text-[--muted]" }),
-            ]
+            ])
             if (trayState.loading) {
                 items.push(tray.text(t("loading"), { className: "text-sm" }))
                 return tray.stack(items, { gap: 3 })
