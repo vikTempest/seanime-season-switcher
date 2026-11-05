@@ -1,4 +1,4 @@
-"""Builds vik-plugins.json: Season Switcher + AniList Custom Ratings + Netflix theme in one extension.
+"""Builds viktempest-ui.json: Season Switcher + AniList Custom Ratings + Netflix theme in one extension.
 
 Usage (from the repository root):  python3 suite/build.py .
 
@@ -16,8 +16,8 @@ import sys
 
 ROOT = sys.argv[1] if len(sys.argv) > 1 else "."
 VERSION = "1.0.0"
-ID = "viktempest-vik-plugins"
-JSON_NAME = "vik-plugins.json"
+ID = "viktempest-ui"
+JSON_NAME = "viktempest-ui.json"
 
 
 def read(path):
@@ -74,7 +74,7 @@ payload = "\n".join([
     "/// <reference path=\"./plugin.d.ts\" />",
     "/// <reference path=\"./app.d.ts\" />",
     "",
-    "// Vik's Plugins for Seanime " + VERSION + ": Season Switcher, AniList Custom Ratings and the Netflix theme",
+    "// VikTempest's UI for Seanime " + VERSION + ": Season Switcher, AniList Custom Ratings and the Netflix theme",
     "// in one extension, with a settings page in the sidebar. Built by suite/build.py, edit the sources there.",
     "",
     "const VS_THEME_CSS = " + json.dumps(theme_css, ensure_ascii=False),
@@ -95,14 +95,14 @@ payload = "\n".join([
 
 m = {
     "id": ID,
-    "name": "Vik's Plugins",
+    "name": "VikTempest's UI",
     "version": VERSION,
     "manifestURI": "https://raw.githubusercontent.com/vikTempest/seanime-season-switcher/main/" + JSON_NAME,
     "website": "https://github.com/vikTempest/seanime-season-switcher",
     "language": "javascript",
     "type": "plugin",
     "description": "Season Switcher, AniList Custom Ratings and a Netflix theme in one extension. "
-                   "All settings are on the \"Vik's Plugins\" page in the sidebar. Languages: Deutsch, English, Español, Português, 日本語.",
+                   "All settings are on the \"VikTempest's UI\" page in the sidebar. Languages: Deutsch, English, Español, Português, 日本語.",
     "author": "Vik",
     "icon": "https://raw.githubusercontent.com/vikTempest/custom-ratings-.5-options/main/icon.png",
     "lang": "multi",
