@@ -22,7 +22,7 @@ function vsRegister(name, fn) {
 // The tray icon (top bar) is the way into the settings: Seanime only shows the sidebar entry
 // after the sidebar is loaded again, so after installing it is missing until a reload.
 // A plugin has one tray, so a module that wants its own tray content asks for it here.
-let vsTrayState = { ctx: null, tray: null }
+let vsTrayState = { ctx: null, tray: null, header: null }
 
 // Shared between the parts: extra tray sections, the rating window, whether the colour picker is open
 const vsShare = { traySections: [], rate: null, pickerOpen: false }
@@ -46,15 +46,20 @@ function vsTray(opts) {
     return vsTrayState.tray
 }
 
+// The tray is drawn often: its render function only builds components, everything else
+// (language, click handlers) is prepared once here.
 function vsTrayHeader(tray) {
-    const lang = vsLoadSettings().language === "de" ? "de" : "en"
+    if (!vsTrayState.header) {
+        const lang = vsLoadSettings().language === "de" ? "de" : "en"
+        vsTrayState.header = {
+            label: VS_PAGE_TEXT[lang].openSettings,
+            onClick: vsTrayState.ctx.eventHandler("vs-open-settings", () => vsOpenSettings()),
+        }
+    }
+    const h = vsTrayState.header
     return [
         tray.text("VikTempest Seanime UI", { className: "font-semibold text-lg" }),
-        tray.button(VS_PAGE_TEXT[lang].openSettings, {
-            intent: "primary",
-            size: "sm",
-            onClick: vsTrayState.ctx.eventHandler("vs-open-settings", () => vsOpenSettings()),
-        }),
+        tray.button(h.label, { intent: "primary", size: "sm", onClick: h.onClick }),
     ].concat(vsTraySections(tray))
 }
 
