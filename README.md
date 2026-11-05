@@ -44,7 +44,7 @@ In Seanime unter **Extensions → Season Switcher → Preferences**:
 **Per Link (empfohlen):** In Seanime unter **Extensions** auf „Add extensions“ klicken und unter „Install from URL“ diesen Link einfügen:
 
 ```
-https://raw.githubusercontent.com/vikTempest/seanime-season-switcher/main/season-switcher.json
+https://raw.githubusercontent.com/vikTempest/vikTempest-Seanime-UI/main/season-switcher.json
 ```
 
 Danach das Plugin aktivieren und die Berechtigung (AniList-Zugriff) bestätigen. Neue Versionen kann Seanime dann selbst aktualisieren.
