@@ -7,6 +7,7 @@ Sources:
   src/extras.js               Extras (screensaver, sleep timer, new seasons, filler, quick search, ...)
   suite/ratings/plugin.js     AniList Custom Ratings (copy of the plugin from custom-ratings-.5-options)
   suite/theme/*.css           Netflix theme (desktop and mobile), turned into a theme for any colour scheme
+  suite/anilist.js            shared AniList cache and request limit (put in for $vsAniLib())
   suite/settings.js           settings page, colour schemes, first-start picker, module loader
 
 Each module keeps its own code. The script only renames its init(), routes $ui.register() to the
@@ -17,7 +18,7 @@ import re
 import sys
 
 ROOT = sys.argv[1] if len(sys.argv) > 1 else "."
-VERSION = "1.3.0"
+VERSION = "1.4.0"
 ID = "viktempest-ui"
 ICON = "https://raw.githubusercontent.com/vikTempest/custom-ratings-.5-options/main/icon.png"
 JSON_NAME = "viktempest-ui.json"
@@ -161,6 +162,12 @@ payload = "\n".join([
     "}",
     "",
 ])
+
+# The shared AniList cache (suite/anilist.js) goes wherever a source says $vsAniLib()
+ani_lib = "\n".join(l for l in read("suite/anilist.js").strip().split("\n") if not l.startswith("//"))
+if "$vsAniLib()" not in payload:
+    sys.exit("no $vsAniLib() in the sources")
+payload = payload.replace("$vsAniLib()", ani_lib)
 
 m = {
     "id": ID,

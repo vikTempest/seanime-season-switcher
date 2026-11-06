@@ -261,7 +261,8 @@ function init() {
       .then(function(r){return r.json()})
       .then(function(j){
         var list=((j&&j.data&&j.data.Page&&j.data.Page.media)||[]).filter(function(m){return m.bannerImage});
-        list.forEach(function(m){m.t=pickTitle(m,want)});
+        list.forEach(function(m){m.t=pickTitle(m,want);if(m.description&&m.description.length>500)m.description=m.description.slice(0,500)});
+        if(list.length>=3)window.webview.send("trending",{items:list});
         start(list.length>=3?list:fallback);
       })
       .catch(function(){start(fallback)});
@@ -276,7 +277,8 @@ function init() {
     clock();setInterval(clock,10000);
     var fb=(d.fallback||[]);
     if(fb.length)start(fb);
-    trending(d.titleLanguage||"english",fb);
+    if(d.trending&&d.trending.length>=3){d.trending.forEach(function(m){m.t=pickTitle(m,d.titleLanguage||"english")});start(d.trending)}
+    else trending(d.titleLanguage||"english",fb);
   });
   window.addEventListener("load",function(){window.webview.send("ready",{})});
 </script>
@@ -296,6 +298,16 @@ function init() {
                     description: e.media.description || "", genres: e.media.genres || [], episodes: e.media.episodes || 0,
                     seasonYear: e.media.seasonYear || (e.media.startDate && e.media.startDate.year) || "",
                 }))
+        }
+
+        // What is trending changes slowly: the list is asked from AniList at most every 6 hours
+        const TRENDING_KEY = "vsx:trending"
+        function trendingCache() {
+            try {
+                const c = $storage.get(TRENDING_KEY)
+                if (c && c.time && Date.now() - c.time < 6 * 3600 * 1000) return c.items || []
+            } catch (e) {}
+            return []
         }
 
         function accentHex() {
@@ -324,7 +336,13 @@ function init() {
                         accent: accentHex(),
                         titleLanguage: pref("titleLanguage", "english"),
                         fallback: fallbackItems(),
+                        trending: trendingCache(),
                     })
+                })
+                saver.view.channel.on("trending", (e) => {
+                    if (e && e.items && e.items.length) {
+                        try { $storage.set(TRENDING_KEY, { time: Date.now(), items: e.items.slice(0, 20) }) } catch (err) {}
+                    }
                 })
                 saver.view.channel.on("close", () => hideSaver())
                 saver.view.channel.on("open", (e) => {
@@ -409,37 +427,24 @@ function init() {
 
         const SEQUEL_FORMATS = { TV: 3, TV_SHORT: 3, ONA: 2, MOVIE: 1, OVA: 1, SPECIAL: 0 }
 
-        // The sequel from the Season Switcher's cache, otherwise one AniList request
+        // The sequel from the shared AniList cache, otherwise one request (the anime and its
+        // direct relations come complete)
+        const ani = typeof vsAni === "object" && vsAni ? vsAni : null
         function sequelOf(media) {
+            if (!ani) return null
+            let node = ani.get(media.id, { full: true })
+            if (!node || (node.rel || []).some((r) => r.type === "SEQUEL" && !ani.get(r.id, { stale: true }))) {
+                try { ani.fetch([media.id], { deep: true }) } catch (e) { console.warn("viktempest-ui extras: next season", e) }
+                node = ani.get(media.id, { full: true, stale: true })
+            }
             let best = null
-            const consider = (n) => {
-                if (!n || !n.id || n.id === media.id || n.status === "CANCELLED") return
-                if (n.type && n.type !== "ANIME") return
+            ;((node && node.rel) || []).forEach((r) => {
+                if (r.type !== "SEQUEL" || (r.mediaType && r.mediaType !== "ANIME")) return
+                const n = ani.get(r.id, { stale: true })
+                if (!n || n.missing || n.status === "CANCELLED") return
                 const score = SEQUEL_FORMATS[n.format] !== undefined ? SEQUEL_FORMATS[n.format] : 0
                 if (!best || score > best.score) best = { score: score, id: n.id, title: titleOf(n), status: n.status, start: n.startDate || null }
-            }
-            try {
-                const node = $store.get("vtss:node:" + media.id)
-                if (node && node.rel) {
-                    node.rel.forEach((r) => {
-                        if (r.type !== "SEQUEL" || (r.mediaType && r.mediaType !== "ANIME")) return
-                        const n = $store.get("vtss:node:" + r.id)
-                        if (n) consider(n)
-                        else consider({ id: r.id })
-                    })
-                    if (best && best.title) return best
-                }
-            }
-            catch (e) {}
-            try {
-                const details = plain($anilist.getAnimeDetails(media.id))
-                best = null
-                const edges = (details && details.relations && details.relations.edges) || []
-                edges.forEach((edge) => { if (edge && edge.relationType === "SEQUEL") consider(edge.node) })
-            }
-            catch (e) {
-                console.warn("viktempest-ui extras: next season", e)
-            }
+            })
             return best
         }
 
@@ -523,7 +528,6 @@ function init() {
 
         const NEW_KEY = "vsx:newSeasons"
         const NEW_SEEN_KEY = "vsx:newSeasonsSeen"
-        const NEW_EVERY_MS = 24 * 3600 * 1000
         const SEASON_FORMATS = { TV: 1, TV_SHORT: 1, ONA: 1 }
         let newSeasons = []
         try { newSeasons = ($storage.get(NEW_KEY) || {}).items || [] } catch (e) {}
@@ -535,17 +539,10 @@ function init() {
             return (d.day ? d.day + "." : "") + d.month + "." + d.year
         }
 
-        function checkNewSeasons(force) {
-            if (pref("newSeasons", "yes") !== "yes") return
-            let last = {}
-            try { last = $storage.get(NEW_KEY) || {} } catch (e) {}
-            if (!force && last.time && Date.now() - last.time < NEW_EVERY_MS) return
-            let col
-            try { col = plain($anilist.getAnimeCollectionWithRelations()) }
-            catch (e) {
-                console.warn("viktempest-ui extras: new seasons", e)
-                return
-            }
+        // Uses your list with relations that the extension loads once a day anyway (see
+        // vsAni.warm in suite/settings.js), so it needs no request of its own
+        function checkNewSeasons(col) {
+            if (pref("newSeasons", "yes") !== "yes" || !col) return
             const lists = (col && col.MediaListCollection && col.MediaListCollection.lists) || []
             const onList = {}
             const watched = []
@@ -790,8 +787,7 @@ function init() {
             saverCheck()
             if (sleep.until) trayUpdate()
         }, 30000)
-        // New seasons: a few minutes after the start, then once a day
-        ctx.setTimeout(() => checkNewSeasons(false), 3 * 60000)
-        ctx.setInterval(() => checkNewSeasons(false), 6 * 3600 * 1000)
+        // New seasons: whenever the list with relations was loaded (once a day)
+        if (share.onWarm) share.onWarm.push((col) => checkNewSeasons(col))
     })
 }

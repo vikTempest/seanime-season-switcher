@@ -168,6 +168,8 @@ const media = {
     9: { id: 9, type: "ANIME", format: "MOVIE", episodes: 1, startDate: { year: 2020, month: 6, day: 1 }, title: { english: "Show Movie" }, rel: [["PREQUEL", 1], ["SEQUEL", 2]] },
     2: { id: 2, type: "ANIME", format: "TV", episodes: 12, startDate: { year: 2021, month: 1, day: 1 }, title: { english: "Show Season 2" }, rel: [["PREQUEL", 9], ["SEQUEL", 3]] },
     3: { id: 3, type: "ANIME", format: "TV", episodes: 12, startDate: { year: 2022, month: 1, day: 1 }, title: { english: "Show Season 3" }, rel: [["PREQUEL", 2]] },
+    77: { id: 77, type: "ANIME", format: "TV", status: "FINISHED", episodes: 12, startDate: { year: 2024, month: 1, day: 1 }, title: { english: "Later Show" }, rel: [["SEQUEL", 78]] },
+    78: { id: 78, type: "ANIME", format: "TV", status: "NOT_YET_RELEASED", episodes: null, startDate: { year: 2027, month: 4, day: 3 }, title: { english: "Later Show 2" }, rel: [["PREQUEL", 77]] },
 }
 function node(id, depth) {
     const m = media[id]
@@ -177,8 +179,11 @@ function node(id, depth) {
     return out
 }
 let anilistFails = false
+let warmCalls = 0
+let queryCalls = 0
 const $anilist = {
     customQuery(body) {
+        queryCalls++
         if (anilistFails) throw new Error("429 Too Many Requests")
         if (body.variables.ids) return { Page: { media: body.variables.ids.filter((i) => media[i]).map((i) => node(i, 1)) } }
         return { Media: node(body.variables.id, 2) }
@@ -194,23 +199,13 @@ const $anilist = {
     getRawMangaCollection() { return { MediaListCollection: { lists: [] } } },
     refreshAnimeCollection() {}, refreshMangaCollection() {},
     getAnimeCollectionWithRelations() {
+        warmCalls++
         return { MediaListCollection: { lists: [{ entries: [
-            { status: "COMPLETED", media: { id: 1, title: { english: "Show" }, relations: { edges: [
-                { relationType: "SEQUEL", node: { id: 2, format: "TV", status: "FINISHED", title: { english: "Show Season 2" } } },
-            ] } } },
-            { status: "CURRENT", media: { id: 2, title: { english: "Show Season 2" }, relations: { edges: [
-                { relationType: "SEQUEL", node: { id: 50, format: "TV", status: "RELEASING", title: { english: "Show Season 3" } } },
-                { relationType: "SEQUEL", node: { id: 51, format: "MOVIE", status: "FINISHED", title: { english: "Show Movie 2" } } },
-            ] } } },
+            { status: "COMPLETED", media: Object.assign(node(1, 1), { status: "FINISHED" }) },
+            { status: "CURRENT", media: Object.assign(node(2, 1), { status: "FINISHED" }) },
         ] }] } }
     },
     updateEntryProgress(id, progress) { progressUpdates.push([id, progress]) },
-    getAnimeDetails(id) {
-        if (id === 77) return { id: 77, relations: { edges: [
-            { relationType: "SEQUEL", node: { id: 78, type: "ANIME", format: "TV", status: "NOT_YET_RELEASED", startDate: { year: 2027, month: 4, day: 3 }, title: { english: "Later Show 2" } } },
-        ] } }
-        return media[id] ? node(id, 1) : { id: id, relations: { edges: [] } }
-    },
 }
 const progressUpdates = []
 
@@ -219,7 +214,7 @@ const progressUpdates = []
 // that uses something from outside its function fails here like it does in Seanime.
 function bindings() {
     const b = {
-        console: { log() {}, info() {}, warn() {}, error: (...a) => console.error("     [plugin error]", ...a) },
+        console: { log() {}, info() {}, warn: (...a) => process.env.WARN && console.error("     [warn]", ...a), error: (...a) => console.error("     [plugin error]", ...a) },
         $store: { get: (k) => store.get(k), set: (k, v) => store.set(k, JSON.parse(JSON.stringify(v))) },
         $storage: { get: (k) => storage.get(k), set: (k, v) => storage.set(k, JSON.parse(JSON.stringify(v))) },
         $anilist,
@@ -344,6 +339,21 @@ setImmediate(() => {
                     hooks.onAnimeLibraryCollection(e)
                     assert.strictEqual(JSON.stringify(e.libraryCollection.lists[0].entries.map((x) => x.mediaId)), "[1]")
                 })
+                check("AniList data is kept across a restart (no new requests)", () => {
+                    const saved = storage.get("vsa:media") || {}
+                    assert.ok(saved[1] && saved[2] && saved[3] && saved[1].rel, "saved: " + Object.keys(saved))
+                    const settings = store.get("vsuite:settings")
+                    store.clear()
+                    store.set("vsuite:settings", settings)
+                    const before = queryCalls
+                    const e = { libraryCollection: { lists: [{ entries: [{ mediaId: 3, media: node(3, 0) }, { mediaId: 1, media: node(1, 0) }] }] }, next() {} }
+                    hooks.onAnimeLibraryCollection(e)
+                    assert.strictEqual(JSON.stringify(e.libraryCollection.lists[0].entries.map((x) => x.mediaId)), "[1]")
+                    assert.strictEqual(queryCalls, before, "should come from the saved cache")
+                })
+                check("list with relations loaded once a day", () => {
+                    assert.strictEqual(warmCalls, 1)
+                })
                 check("season dropdown with progress", () => {
                     navigateCb({ pathname: "/entry", searchParams: { id: "2" } })
                 })
@@ -366,6 +376,7 @@ setImmediate(() => {
                     check("AniList limit gives one message", () => {
                         anilistFails = true
                         store.clear()
+                        storage.delete("vsa:media")
                         navigateCb({ pathname: "/entry", searchParams: { id: "3" } })
                         navigateCb({ pathname: "/entry", searchParams: { id: "1" } })
                         anilistFails = false

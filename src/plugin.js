@@ -45,52 +45,29 @@ function init() {
                     if (ep && ep.baseAnime && ep.baseAnime.id) ids.push(ep.baseAnime.id)
                 })
 
-                // Relations (PREQUEL/SEQUEL) of every id, cached for 12 hours and fetched 50 at a time
-                const CACHE_MS = 12 * 60 * 60 * 1000
+                // Relations (PREQUEL/SEQUEL) of every id from the shared AniList cache (see
+                // suite/anilist.js). Several rounds, so seasons are also connected through entries
+                // that are not shown here (e.g. Season 1 and 3 in this section, Season 2 elsewhere).
+                // Seanime waits for this hook before it shows the home page, so at most 2 requests
+                // per call: what is missing gets merged the next time the home page loads.
+                const ani = $vsAniLib()
                 const rel = {}
-                // Several rounds, so seasons are also connected through entries that are not shown here
-                // (e.g. Season 1 and 3 in this section, Season 2 somewhere else or not on your list)
                 let wanted = ids.slice()
-                // Seanime waits for this hook before it shows the home page, and AniList allows
-                // only a few requests per minute. So at most 3 requests per call: what is missing
-                // gets merged the next time the home page loads.
-                let requests = 0
+                let requests = 2
                 for (let round = 0; round < 8 && wanted.length; round++) {
-                    const missing = []
+                    const missing = wanted.filter((id) => !rel[id] && !ani.get(id, { full: true }))
+                    if (missing.length && requests > 0) {
+                        const n = Math.ceil(missing.length / 50)
+                        try { ani.fetch(missing, { maxRequests: requests }) }
+                        catch (err) { console.warn("season-switcher: could not load relations", err) }
+                        requests -= n
+                    }
                     wanted.forEach((id) => {
                         if (rel[id]) return
-                        const c = $store.get("vtss:rel:" + id)
-                        if (c && c.time && (Date.now() - c.time) < CACHE_MS) rel[id] = c.rel
-                        else if (missing.indexOf(id) === -1) missing.push(id)
+                        const e = ani.get(id, { full: true, stale: true })
+                        if (!e) return
+                        rel[id] = (e.rel || []).filter((r) => r.mediaType === "ANIME" && (r.type === "PREQUEL" || r.type === "SEQUEL")).map((r) => r.id)
                     })
-                    for (let i = 0; i < missing.length; i += 25) {
-                        if (requests >= 3) break
-                        requests++
-                        const chunk = missing.slice(i, i + 25)
-                        try {
-                            const res = JSON.parse(JSON.stringify($anilist.customQuery({
-                                query: "query ($ids: [Int]) { Page(perPage: 25) { media(id_in: $ids, type: ANIME) { id startDate { year month day } relations { edges { relationType node { id type } } } } } }",
-                                variables: { ids: chunk },
-                            }, "")))
-                            const page = (res && (res.Page || (res.data && res.data.Page))) || {}
-                            ;(page.media || []).forEach((m) => {
-                                const r = []
-                                ;((m.relations && m.relations.edges) || []).forEach((edge) => {
-                                    if (edge && edge.node && edge.node.type === "ANIME" &&
-                                        (edge.relationType === "PREQUEL" || edge.relationType === "SEQUEL")) r.push(edge.node.id)
-                                })
-                                rel[m.id] = r
-                                const d = m.startDate || {}
-                                $store.set("vtss:rel:" + m.id, {
-                                    time: Date.now(), rel: r,
-                                    start: d.year ? d.year * 10000 + (d.month || 12) * 100 + (d.day || 28) : 99999999,
-                                })
-                            })
-                        }
-                        catch (err) {
-                            console.warn("season-switcher: could not load relations", err)
-                        }
-                    }
                     const next = []
                     wanted.forEach((id) => (rel[id] || []).forEach((other) => {
                         if (!rel[other] && next.indexOf(other) === -1) next.push(other)
@@ -293,18 +270,11 @@ function init() {
         // does not break the chain.
         const SEASON_FORMATS = { TV: true, TV_SHORT: true, ONA: true }
         const MAX_ENTRIES = 40
-        // Same as the library hook above: AniList data is kept 12 hours
-        const CACHE_MS = 12 * 60 * 60 * 1000
+        // AniList data comes from the cache shared by every part of the extension (suite/anilist.js)
+        const ani = vsAni
 
         // -----------------------------------------------------------------------------------------
         // AniList
-
-        const FIELDS = "id type format status episodes seasonYear startDate { year month day } title { romaji english native }"
-        // Two levels of relations per request, so a chain of seasons needs only about half as many
-        // requests as it has entries.
-        const QUERY = "query ($id: Int) { Media(id: $id) { " + FIELDS +
-            " relations { edges { relationType node { " + FIELDS +
-            " relations { edges { relationType node { " + FIELDS + " } } } } } } } }"
 
         // AniList allows only a few requests per minute, shared with Seanime. Say so once instead
         // of silently showing no seasons.
@@ -331,43 +301,16 @@ function init() {
             return v === undefined || v === null ? v : JSON.parse(JSON.stringify(v))
         }
 
-        function cacheGet(id) {
-            const v = $store.get("vtss:node:" + id)
-            return v && v.time && (Date.now() - v.time) < CACHE_MS ? v : null
-        }
-
-        function remember(media, withRelations) {
-            if (!media || !media.id) return
-            const old = cacheGet(media.id)
-            const node = {
-                time: Date.now(),
-                id: media.id,
-                type: media.type,
-                format: media.format,
-                status: media.status,
-                episodes: media.episodes,
-                seasonYear: media.seasonYear,
-                startDate: media.startDate || {},
-                title: media.title || {},
-                rel: old ? old.rel : null,
-            }
-            if (withRelations) {
-                const edges = (media.relations && media.relations.edges) || []
-                node.rel = []
-                edges.forEach((edge) => {
-                    if (!edge || !edge.node) return
-                    node.rel.push({ type: edge.relationType, id: edge.node.id, mediaType: edge.node.type })
-                    remember(edge.node, !!edge.node.relations)
-                })
-            }
-            $store.set("vtss:node:" + media.id, node)
-        }
-
-        function fetchMedia(id) {
-            const res = plain($anilist.customQuery({ query: QUERY, variables: { id: id } }, ""))
-            const media = res && (res.Media || (res.data && res.data.Media))
-            if (!media) throw new Error("no media " + id)
-            remember(media, true)
+        // One anime with its relations: fresh from the cache, otherwise one request (the anime
+        // and its direct relations come complete). When AniList is busy, an old copy is used.
+        function nodeOf(id) {
+            let node = ani.get(id, { full: true })
+            if (node) return node
+            let err = null
+            try { ani.fetch([id], { deep: true }) } catch (e) { err = e }
+            node = ani.get(id, { full: true, stale: true })
+            if (!node && err) throw err
+            return node
         }
 
         // All anime connected to this one through PREQUEL/SEQUEL, sorted by start date.
@@ -379,12 +322,8 @@ function init() {
                 const id = queue.shift()
                 if (seen[id]) continue
                 seen[id] = true
-                let node = cacheGet(id)
-                if (!node || !node.rel) {
-                    fetchMedia(id)
-                    node = cacheGet(id)
-                }
-                if (!node) continue
+                const node = nodeOf(id)
+                if (!node || node.missing) continue
                 result.push(node)
                 ;(node.rel || []).forEach((r) => {
                     if ((r.type === "PREQUEL" || r.type === "SEQUEL") && r.mediaType !== "MANGA" && !seen[r.id]) queue.push(r.id)
@@ -550,62 +489,45 @@ function init() {
         // AniList said "too many requests".
         const REL_BATCHES = 2
         const REL_PAUSE_MS = 2500
-        const relLimit = { until: 0, incomplete: false }
+        const relLimit = { incomplete: false }
 
         // PREQUEL/SEQUEL ids, start date, format, title and cover per id
+        function infoOf(e) {
+            const d = e.startDate || {}
+            return {
+                id: e.id, format: e.format, season: e.season, seasonYear: e.seasonYear || d.year,
+                title: e.title || {}, cover: e.cover || "",
+                start: d.year ? d.year * 10000 + (d.month || 12) * 100 + (d.day || 28) : 99999999,
+                rel: (e.rel || []).filter((r) => r.mediaType === "ANIME" && (r.type === "PREQUEL" || r.type === "SEQUEL")).map((r) => r.id),
+            }
+        }
         function loadRelations(ids) {
-            const REL_CACHE_MS = CACHE_MS
             const rel = {}
-            let requests = 0
+            let requests = REL_BATCHES
             relLimit.incomplete = false
             let wanted = ids.slice()
             for (let round = 0; round < 8 && wanted.length; round++) {
-                const missing = []
+                const missing = wanted.filter((id) => !rel[id] && !ani.get(id, { full: true }))
+                if (missing.length) {
+                    if (requests <= 0 || ani.wait() > 0) relLimit.incomplete = true
+                    else {
+                        try {
+                            if (!ani.fetch(missing, { maxRequests: requests })) relLimit.incomplete = true
+                        }
+                        catch (e) {
+                            // e.g. AniList's request limit: use what we have, the rest comes next time
+                            console.warn("season-switcher: could not load relations", e)
+                            checkRateLimit(e)
+                            relLimit.incomplete = true
+                        }
+                        requests -= Math.ceil(missing.length / 50)
+                    }
+                }
                 wanted.forEach((id) => {
                     if (rel[id]) return
-                    const c = $store.get("vtss:info:" + id)
-                    if (c && c.time && (Date.now() - c.time) < REL_CACHE_MS) rel[id] = c
-                    else if (missing.indexOf(id) === -1) missing.push(id)
+                    const e = ani.get(id, { full: true, stale: true })
+                    if (e) rel[id] = infoOf(e)
                 })
-                for (let i = 0; i < missing.length; i += 25) {
-                    if (requests >= REL_BATCHES || Date.now() < relLimit.until) {
-                        relLimit.incomplete = true
-                        break
-                    }
-                    requests++
-                    let res = null
-                    try {
-                        res = plain($anilist.customQuery({
-                            query: "query ($ids: [Int]) { Page(perPage: 25) { media(id_in: $ids, type: ANIME) { id format season seasonYear startDate { year month day } " +
-                                "title { romaji english native } coverImage { extraLarge large } " +
-                                "relations { edges { relationType node { id type } } } } } }",
-                            variables: { ids: missing.slice(i, i + 25) },
-                        }, ""))
-                    }
-                    catch (e) {
-                        // e.g. AniList's request limit: use what we have, the rest comes next time
-                        console.warn("season-switcher: could not load relations", e)
-                        if (checkRateLimit(e)) relLimit.until = Date.now() + 60000
-                        continue
-                    }
-                    const page = (res && (res.Page || (res.data && res.data.Page))) || {}
-                    ;(page.media || []).forEach((m) => {
-                        const r = []
-                        ;((m.relations && m.relations.edges) || []).forEach((edge) => {
-                            if (edge && edge.node && edge.node.type === "ANIME" &&
-                                (edge.relationType === "PREQUEL" || edge.relationType === "SEQUEL")) r.push(edge.node.id)
-                        })
-                        const d = m.startDate || {}
-                        const entry = {
-                            time: Date.now(), rel: r,
-                            start: d.year ? d.year * 10000 + (d.month || 12) * 100 + (d.day || 28) : 99999999,
-                            id: m.id, format: m.format, season: m.season, seasonYear: m.seasonYear || d.year,
-                            title: m.title || {}, cover: (m.coverImage && (m.coverImage.extraLarge || m.coverImage.large)) || "",
-                        }
-                        rel[m.id] = entry
-                        $store.set("vtss:info:" + m.id, entry)
-                    })
-                }
                 const next = []
                 wanted.forEach((id) => ((rel[id] && rel[id].rel) || []).forEach((other) => {
                     if (!rel[other] && next.indexOf(other) === -1) next.push(other)
@@ -719,7 +641,7 @@ function init() {
                         rows.timer = ctx.setTimeout(() => {
                             rows.timer = null
                             mergeRows()
-                        }, Math.max(REL_PAUSE_MS, relLimit.until - Date.now()))
+                        }, Math.max(REL_PAUSE_MS, ani.wait()))
                     }
                 })
         }
