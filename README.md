@@ -5,7 +5,8 @@ Eine Erweiterung für Seanime mit allem drin:
 - **Season Switcher:** Staffeln zusammenfassen, Staffel-Dropdown mit Fortschritt, Folgenliste statt Sofort-Stream
 - **AniList Custom Ratings:** Bewertungskategorien und Custom Lists
 - **Theme:** schwarzer Netflix-Look in Rot, Lila, Blau oder deinen eigenen Farben
-- **Extras:** Bildschirmschoner, Schlaftimer, Schnellsuche (Strg+K), Hinweis auf neue Staffeln, Filler abdunkeln, Rechtsklick auf Folgen, Bewerten nach der letzten Folge
+- **Extras:** Bildschirmschoner, Schlaftimer, Schnellsuche (Strg+K), Hinweis auf neue Staffeln, Filler abdunkeln, Rechtsklick auf Folgen, Bewerten nach der letzten Folge, danach direkt zur nächsten Staffel, Weiterschauen mit einem Klick
+- **Seitenleiste:** einfahren lassen und Einträge ausblenden
 
 Sprachen: Deutsch, English, Español, Português, 日本語
 
@@ -36,10 +37,13 @@ Alle Einstellungen stehen auf einer eigenen Seite. So kommst du hin:
 - **Theme:** Aus, Rot, Lila, Blau oder Eigene (Akzent- und Hintergrundfarbe frei wählbar). Wirkt sofort, ohne Speichern.
 - **Allgemein:** Sprache und jeden Teil einzeln an/aus
 - **Season Switcher:** Titel-Sprache, Filme/OVAs im Dropdown, Fortschritt im Dropdown, Staffeln zusammenfassen, welche Karte pro Serie, Abzeichen „X Staffeln“, Folgenliste statt Sofort-Stream, Folge anklicken startet Stream
+- **Seitenleiste:** einfahren (nur ein schmaler Rand bleibt, mit der Maus fährt sie heraus) und einzelne Einträge ausblenden, z. B. Manga, Torrent-Liste oder die Suche (die gibt es auch oben und mit Strg+K). Wirkt sofort.
 - **AniList Custom Ratings:** Schrittweite der Pfeiltasten
-- **Extras:** Bildschirmschoner an/aus und nach wie vielen Minuten, Hinweis auf neue Staffeln, Filler-Folgen (normal, abdunkeln, ausblenden), Bewerten nach der letzten Folge, Rechtsklick-Menü, Schnellsuche
+- **Extras:** Bildschirmschoner an/aus und nach wie vielen Minuten, Hinweis auf neue Staffeln, Filler-Folgen (normal, abdunkeln, ausblenden), Bewerten nach der letzten Folge, danach zur nächsten Staffel, Weiterschauen, Rechtsklick-Menü, Schnellsuche
 
 Die meisten Einstellungen gelten sofort nach dem Speichern, spätestens beim nächsten Seitenwechsel. Nur die mit „nach Neustart“ markierten (Sprache, Teile an/aus, Folgenliste) brauchen einen Neustart von Seanime, weil sich ein Plugin nicht selbst neu laden kann. „Auf Standard zurücksetzen“ stellt alles auf den Anfang.
+
+**Sichern und laden:** „Exportieren“ schreibt alle Einstellungen als Text in das Feld darunter (und in die Zwischenablage). Heb den Text auf, bevor du die Erweiterung deinstallierst, denn Seanime löscht dabei alle ihre Einstellungen. Nach dem Neuinstallieren den Text einfügen und „Importieren“ drücken.
 
 Unter **Status** siehst du, ob die Erweiterung die Teile von Seanime findet, mit denen sie arbeitet. Steht dort nach einem Seanime-Update „noch nicht gesehen“, obwohl du die passende Seite geöffnet hast, hat das Update etwas verändert.
 
@@ -69,7 +73,7 @@ Die Daten werden 12 Stunden zwischengespeichert, weil AniList nur wenige Anfrage
 
 **Bildschirmschoner:** Machst du eine Weile nichts (Standard 5 Minuten), zeigt Seanime die Anime aus dem großen Banner der Startseite (gerade beliebt auf AniList) bildschirmfüllend mit Titel, Beschreibung und Uhr. Mit „Ansehen“ öffnest du den gezeigten Anime, mit dem Knopf unten in der Mitte (oder Esc) kommst du zurück. Während ein Video läuft, kommt er nie. Ist AniList nicht erreichbar, zeigt er Anime von deiner Liste.
 
-**Symbol oben:** Neben „Einstellungen öffnen“ und den Custom-Ratings-Infos stehen dort der **Schlaftimer** (15, 30, 60 Minuten oder „Nach dieser Folge“, danach pausiert der Player), die Schnellsuche und die neuen Staffeln.
+**Symbol oben:** Neben „Einstellungen öffnen“ und den Custom-Ratings-Infos stehen dort der **Schlaftimer** (15, 30, 60 Minuten oder „Nach dieser Folge“, danach pausiert der Player), **Weiterschauen** (deine drei zuletzt geschauten Anime, ein Klick startet die nächste Folge), die Schnellsuche und die neuen Staffeln.
 
 **Neue Staffeln:** Einmal am Tag schaut die Erweiterung, ob es von Anime, die du gesehen hast oder gerade schaust, eine Fortsetzung gibt, die noch nicht auf deiner Liste ist. Neue Funde meldet sie einmal kurz, die ganze Liste steht im Symbol oben.
 
@@ -79,7 +83,11 @@ Die Daten werden 12 Stunden zwischengespeichert, weil AniList nur wenige Anfrage
 
 **Bewerten nach der letzten Folge:** Hast du die letzte Folge einer Staffel gesehen, öffnet sich nach dem Player einmal das Bewertungsfenster von AniList Custom Ratings.
 
-**Schnellsuche:** Strg+K (am Mac Cmd+K) sucht in deiner Liste und bietet Aktionen wie Schlaftimer oder Einstellungen. Im Browser kann Strg+K schon belegt sein, dann geht es über das Symbol oben.
+**Nächste Staffel:** Nach der letzten Folge einer Staffel öffnet sich direkt die Folgenliste der Fortsetzung. Ist sie noch nicht erschienen, sagt dir ein Hinweis, wann sie startet.
+
+**Opening/Ending überspringen** kann Seanime schon selbst: im Player unter Einstellungen „Auto Skip OP/ED“ (nutzt AniSkip). Deshalb hat die Erweiterung dafür nichts Eigenes.
+
+**Schnellsuche:** Strg+K (am Mac Cmd+K) sucht in deiner Liste, zeigt oben „Weiterschauen“ und bietet Aktionen wie Schlaftimer oder Einstellungen. Im Browser kann Strg+K schon belegt sein, dann geht es über das Symbol oben.
 
 ## Auf dem Handy
 

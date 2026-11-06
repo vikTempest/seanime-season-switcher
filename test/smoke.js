@@ -186,7 +186,8 @@ const $anilist = {
     getAnimeCollection() {
         return { MediaListCollection: { lists: [{ entries: [
             { status: "COMPLETED", progress: 12, media: { id: 1, title: { english: "Show", romaji: "Shou" }, bannerImage: "b1.jpg" } },
-            { status: "CURRENT", progress: 5, media: { id: 2, title: { english: "Show Season 2" }, bannerImage: "b2.jpg" } },
+            { status: "CURRENT", progress: 5, updatedAt: 200, media: { id: 2, episodes: 12, title: { english: "Show Season 2" }, bannerImage: "b2.jpg" } },
+            { status: "CURRENT", progress: 3, updatedAt: 100, media: { id: 60, episodes: 0, status: "RELEASING", nextAiringEpisode: { episode: 4 }, title: { english: "Airing Show" } } },
         ] }] } }
     },
     getRawAnimeCollection() { return { MediaListCollection: { lists: [] } } },
@@ -204,6 +205,12 @@ const $anilist = {
         ] }] } }
     },
     updateEntryProgress(id, progress) { progressUpdates.push([id, progress]) },
+    getAnimeDetails(id) {
+        if (id === 77) return { id: 77, relations: { edges: [
+            { relationType: "SEQUEL", node: { id: 78, type: "ANIME", format: "TV", status: "NOT_YET_RELEASED", startDate: { year: 2027, month: 4, day: 3 }, title: { english: "Later Show 2" } } },
+        ] } }
+        return media[id] ? node(id, 1) : { id: id, relations: { edges: [] } }
+    },
 }
 const progressUpdates = []
 
@@ -451,10 +458,47 @@ setImmediate(() => {
                         videoListeners["video-terminated"]({})
                         assert.strictEqual(toasts.length, 0, "asked only once")
                     })
+                    check("next season opens after the last episode", () => {
+                        toasts.length = 0
+                        const navs = navigations.length
+                        playbackInfo = { media: { id: 2, episodes: 12, title: { english: "Show Season 2" } }, episode: { episodeNumber: 12, progressNumber: 12 } }
+                        videoListeners["video-completed"]({})
+                        videoListeners["video-ended"]({})
+                        const last = navigations[navigations.length - 1]
+                        assert.ok(navigations.length > navs && last.path === "/entry" && last.params.id === "3", JSON.stringify(last))
+                        assert.ok(toasts.some((t) => /Show Season 3/.test(t[1])), JSON.stringify(toasts))
+                    })
+                    check("next season not out yet: only a notice", () => {
+                        toasts.length = 0
+                        const navs = navigations.length
+                        playbackInfo = { media: { id: 77, episodes: 12, title: { english: "Later Show" } }, episode: { episodeNumber: 12 } }
+                        videoListeners["video-completed"]({})
+                        videoListeners["video-terminated"]({})
+                        assert.strictEqual(navigations.length, navs)
+                        assert.ok(toasts.some((t) => /Later Show 2/.test(t[1]) && /3\.4\.2027/.test(t[1])), JSON.stringify(toasts))
+                    })
+                    check("not the last episode: nothing happens", () => {
+                        toasts.length = 0
+                        const navs = navigations.length
+                        playbackInfo = { media: { id: 1, episodes: 12, title: { english: "Show" } }, episode: { episodeNumber: 7 } }
+                        videoListeners["video-completed"]({})
+                        videoListeners["video-terminated"]({})
+                        assert.strictEqual(navigations.length, navs)
+                        assert.strictEqual(toasts.length, 0)
+                    })
+                    check("continue watching in the tray starts the next episode", () => {
+                        const out = JSON.stringify(trays[0].renderFn())
+                        assert.ok(out.includes("Weiterschauen") && out.includes("Show Season 2 · Folge 6"), out)
+                        assert.ok(!out.includes("Airing Show"), "episode 4 is not out yet")
+                        eventHandlers["vsx-cont-2-6"]()
+                        const last = navigations[navigations.length - 1]
+                        assert.strictEqual(JSON.stringify(last.params), JSON.stringify({ id: "2", tab: "onlinestream", episode: "6" }))
+                    })
                     check("quick search lists your anime and opens it", () => {
                         const p = palettes[0]
                         assert.strictEqual(p.options.keyboardShortcut, "mod+k")
                         p.open()
+                        assert.ok(p.items.some((i) => i.heading === "Weiterschauen"), "continue watching in quick search")
                         const item = p.items.find((i) => /Shou/.test(i.value))
                         assert.ok(item, JSON.stringify(p.items.map((i) => i.value)))
                         item.onSelect()
@@ -479,6 +523,32 @@ setImmediate(() => {
                         navigateCb({ pathname: "/entry", searchParams: { id: "1" } })
                         return new Promise((r) => setImmediate(r))
                     })
+                    check("settings export and import", () => {
+                        page.channel.sent.length = 0
+                        page.channel.handlers.export()
+                        const ex = page.channel.sent.find((m) => m.name === "exported")
+                        const data = JSON.parse(ex.payload.text)
+                        assert.strictEqual(data.app, "viktempest-ui")
+                        data.settings.sidebarHide = "manga,search,nonsense"
+                        data.settings.sidebarAutoHide = "yes"
+                        data.settings.filler = "not-an-option"
+                        data.settings.unknownKey = "x"
+                        page.channel.handlers.import({ text: JSON.stringify(data) })
+                        const s = storage.get("vsuite:settings")
+                        assert.strictEqual(s.sidebarHide, "manga,search")
+                        assert.strictEqual(s.sidebarAutoHide, "yes")
+                        assert.strictEqual(s.filler, "normal", "bad value falls back to the default")
+                        assert.ok(!("unknownKey" in s))
+                        page.channel.handlers.import({ text: "hello" })
+                        return new Promise((r) => setImmediate(r))
+                    })
+                    setImmediate(() => check("bad import text is refused, sidebar style added", () => {
+                        const inits = page.channel.sent.filter((m) => m.name === "init")
+                        assert.ok(/kein gültiger/.test(inits[inits.length - 1].payload.msg), JSON.stringify(inits.map((i) => i.payload.msg)))
+                        const st = body.children.find((c) => c.attributes["data-vsuite-layout"] && !c.removed)
+                        assert.ok(st && /item-id="manga"/.test(st.text) && /item-id="search"/.test(st.text) && /translateX/.test(st.text), st && st.text)
+                        assert.ok(!/discover/.test(st.text))
+                    }))
                     // after the checks that wait for the page (filler style)
                     setImmediate(() => setImmediate(() => {
                         console.log(failures ? "\n" + failures + " failed" : "\nall passed")

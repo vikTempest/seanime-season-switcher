@@ -191,6 +191,21 @@ const VS_FIELDS = [
         ],
     },
     {
+        section: "layout", fields: [
+            { key: "sidebarAutoHide", live: true, default: "no", yesNo: true,
+              label: { de: "Seitenleiste einfahren", en: "Slide the sidebar away" },
+              hint: { de: "Die Leiste links verschwindet bis auf einen schmalen Rand und fährt heraus, wenn die Maus an den Rand kommt. Mehr Platz für Bilder und Folgen.",
+                      en: "The bar on the left hides except for a thin edge and slides out when the mouse reaches the edge. More room for covers and episodes." } },
+            { key: "sidebarHide", live: true, default: "", multi: true,
+              label: { de: "Einträge in der Seitenleiste ausblenden", en: "Hide sidebar entries" },
+              options: [["schedule", { de: "Zeitplan", en: "Schedule" }], ["manga", "Manga"], ["lists", { de: "Listen", en: "Lists" }],
+                        ["discover", "Discover"], ["search", { de: "Suche", en: "Search" }], ["torrent-list", { de: "Torrent-Liste", en: "Torrent list" }],
+                        ["debrid", "Debrid"], ["scan-summaries", { de: "Scan-Berichte", en: "Scan summaries" }], ["auto-downloader", "Auto Downloader"]],
+              hint: { de: "Angeklickte Einträge werden ausgeblendet. Die Suche gibt es auch oben und mit Strg+K, du kannst sie also ausblenden und nur Discover behalten.",
+                      en: "Selected entries are hidden. Search is also at the top and on Ctrl+K, so you can hide it and keep only Discover." } },
+        ],
+    },
+    {
         section: "switcher", fields: [
             { key: "titleLanguage", default: "english", label: { de: "Titel", en: "Titles" },
               options: [["english", "English"], ["romaji", "Romaji"], ["native", "Native / 日本語"]] },
@@ -228,6 +243,12 @@ const VS_FIELDS = [
               hint: { de: "Folgen, die Seanime als Filler kennt.", en: "Episodes Seanime knows as filler." } },
             { key: "rateAfter", default: "yes", label: { de: "Nach der letzten Folge einer Staffel zum Bewerten fragen", en: "Ask for a rating after the last episode of a season" }, yesNo: true,
               hint: { de: "Öffnet das Bewertungsfenster von AniList Custom Ratings, wenn der Player nach der letzten Folge stoppt.", en: "Opens the AniList Custom Ratings window when the player stops after the last episode." } },
+            { key: "nextSeason", default: "yes", label: { de: "Nach der letzten Folge zur nächsten Staffel", en: "Go to the next season after the last episode" }, yesNo: true,
+              hint: { de: "Öffnet die Folgenliste der Fortsetzung, sobald der Player stoppt. Ist sie noch nicht erschienen, sagt dir ein Hinweis, wann sie startet.",
+                      en: "Opens the episode list of the sequel as soon as the player stops. If it isn't out yet, a notice tells you when it starts." } },
+            { key: "continueWatching", default: "yes", label: { de: "Weiterschauen mit einem Klick", en: "Continue watching in one click" }, yesNo: true,
+              hint: { de: "Im Symbol oben und in der Schnellsuche: deine zuletzt geschauten Anime, ein Klick startet die nächste Folge.",
+                      en: "In the icon at the top and in quick search: the anime you watched last, one click starts the next episode." } },
             { key: "episodeMenu", restart: true, default: "yes", label: { de: "Rechtsklick-Menü auf Folgen", en: "Right-click menu on episodes" }, yesNo: true,
               hint: { de: "„Bis hier als gesehen markieren“ und „Online-Stream starten“", en: "\"Mark watched up to here\" and \"Start online stream\"" } },
             { key: "quickSearch", restart: true, default: "yes", label: { de: "Schnellsuche mit Strg+K", en: "Quick search with Ctrl+K" }, yesNo: true,
@@ -248,6 +269,7 @@ const VS_CHANGES = {
         "1.1.2: Das Symbol oben (Tray) hat jetzt den Knopf „Einstellungen öffnen“; „Aktualisieren“ meldet sich, wenn es fertig ist",
         "1.2.0: Extras: Bildschirmschoner, Schlaftimer und Schnellsuche (Strg+K), Hinweis auf neue Staffeln, Filler abdunkeln oder ausblenden, Rechtsklick auf Folgen, Bewerten nach der letzten Folge",
         "1.2.1: Seanime hängt nicht mehr nach der Installation (Bildschirmschoner-Erkennung), Absturz beim Symbol oben behoben",
+        "1.3.0: Nach der letzten Folge direkt zur nächsten Staffel, Weiterschauen mit einem Klick, Seitenleiste einfahren und Einträge ausblenden, Einstellungen sichern und laden, stabiler",
     ],
     en: [
         "Colour schemes: red, purple, blue or your own colours, picked on first start",
@@ -259,6 +281,7 @@ const VS_CHANGES = {
         "1.1.2: The tray icon at the top now has an \"Open settings\" button; \"Refresh\" tells you when it is done",
         "1.2.0: Extras: screensaver, sleep timer and quick search (Ctrl+K), notice about new seasons, dim or hide filler, right-click on episodes, rating after the last episode",
         "1.2.1: Seanime no longer hangs after installing (screensaver activity check), fixed a crash in the tray icon",
+        "1.3.0: Straight to the next season after the last episode, continue watching in one click, slide-away sidebar and hidden entries, back up and load settings, more stable",
     ],
 }
 
@@ -289,11 +312,79 @@ function vsSaveSettings(s) {
     try { $store.set(VS_SETTINGS_KEY, s) } catch (e) {}
 }
 
+// Reads a text made by "Export". Only known settings with allowed values are taken.
+function vsImportSettings(text) {
+    let data
+    try { data = JSON.parse(String(text || "").trim()) } catch (e) { return null }
+    const src = data && typeof data === "object" ? (data.settings && typeof data.settings === "object" ? data.settings : data) : null
+    if (!src) return null
+    const next = vsDefaults()
+    let found = 0
+    VS_FIELDS.forEach((sec) => sec.fields.forEach((f) => {
+        const v = src[f.key]
+        if (v === undefined || v === null) return
+        const str = String(v)
+        if (f.onOff && str !== "on" && str !== "off") return
+        if (f.yesNo && str !== "yes" && str !== "no") return
+        if (f.color && !vsHexRgb(str)) return
+        if (f.options && !f.multi && !f.options.some((o) => o[0] === str)) return
+        if (f.multi) {
+            const ok = f.options.map((o) => o[0])
+            next[f.key] = str.split(",").filter((x) => ok.indexOf(x) >= 0).join(",")
+        }
+        else next[f.key] = str
+        found++
+    }))
+    return found ? next : null
+}
+
+// Sidebar CSS for the layout settings ("" when nothing is changed)
+const VS_SIDEBAR_IDS = ["schedule", "manga", "lists", "discover", "search", "torrent-list", "debrid", "scan-summaries", "auto-downloader"]
+function vsLayoutCss(s) {
+    let css = ""
+    const hide = String((s && s.sidebarHide) || "").split(",").filter((x) => VS_SIDEBAR_IDS.indexOf(x) >= 0)
+    if (hide.length) {
+        css += hide.map((id) => ":is(a, button):has([data-vertical-menu-item-id=\"" + id + "\"]), [data-vertical-menu-item-id=\"" + id + "\"]").join(",\n") +
+            " { display: none !important; }\n"
+    }
+    if (s && s.sidebarAutoHide === "yes") {
+        css += "@media (min-width: 1024px) {\n" +
+            "  .UI-AppLayoutSidebar__root { transform: translateX(calc(-100% + 8px)); transition: transform .22s cubic-bezier(.2,.8,.2,1) .15s; }\n" +
+            "  .UI-AppLayoutSidebar__root:hover, .UI-AppLayoutSidebar__root:focus-within { transform: none; transition-delay: 0s; }\n" +
+            "  .UI-AppLayout__root.with-sidebar > .appLayout { padding-left: 8px !important; transition: padding .22s; }\n" +
+            "}\n"
+    }
+    return css
+}
+
+// Puts css into one <style> element marked with attr (removes it when css is empty)
+function vsSetStyle(ctx, attr, css) {
+    return ctx.dom.queryOne("[" + attr + "]").then((existing) => {
+        if (existing) {
+            if (css) existing.setText(css)
+            else existing.remove()
+            return
+        }
+        if (!css) return
+        return Promise.all([ctx.dom.createElement("style"), ctx.dom.queryOne("body")]).then((res) => {
+            if (!res[0] || !res[1]) return
+            res[0].setAttribute(attr, "1")
+            res[0].setText(css)
+            res[1].append(res[0])
+        })
+    }).catch((e) => console.warn("viktempest-ui: style " + attr, e))
+}
+
 const VS_PAGE_TEXT = {
     de: {
         title: "VikTempest Seanime UI",
         intro: "Alle Einstellungen für Season Switcher, AniList Custom Ratings und das Theme.",
         general: "Allgemein", theme: "Theme", switcher: "Season Switcher", ratings: "AniList Custom Ratings", extras: "Extras",
+        layout: "Seitenleiste", backup: "Sichern und laden",
+        backupHint: "„Exportieren“ schreibt alle Einstellungen als Text in das Feld (und in die Zwischenablage). Heb ihn auf, z. B. vor dem Neuinstallieren: Seanime löscht beim Deinstallieren alle Einstellungen. Zum Laden den Text einfügen und „Importieren“ drücken.",
+        exportBtn: "Exportieren", importBtn: "Importieren", exported: "Exportiert. Den Text jetzt kopieren und aufheben.",
+        imported: "Importiert.", importFailed: "Das ist kein gültiger Einstellungs-Text.",
+        skipHint: "Opening und Ending überspringen kann Seanime schon selbst: im Player unter Einstellungen „Auto Skip OP/ED“ (nutzt AniSkip).",
         status: "Status", news: "Neu in dieser Version",
         on: "An", off: "Aus", yes: "Ja", no: "Nein",
         save: "Speichern", saved: "Gespeichert.", reset: "Auf Standard zurücksetzen",
@@ -317,6 +408,11 @@ const VS_PAGE_TEXT = {
         title: "VikTempest Seanime UI",
         intro: "All settings for Season Switcher, AniList Custom Ratings and the theme.",
         general: "General", theme: "Theme", switcher: "Season Switcher", ratings: "AniList Custom Ratings", extras: "Extras",
+        layout: "Sidebar", backup: "Back up and load",
+        backupHint: "\"Export\" writes all settings as text into the box (and to the clipboard). Keep it, e.g. before reinstalling: Seanime deletes all settings when you uninstall. To load them, paste the text and press \"Import\".",
+        exportBtn: "Export", importBtn: "Import", exported: "Exported. Copy the text now and keep it.",
+        imported: "Imported.", importFailed: "That isn't a valid settings text.",
+        skipHint: "Seanime can already skip openings and endings itself: in the player settings, \"Auto skip OP/ED\" (uses AniSkip).",
         status: "Status", news: "New in this version",
         on: "On", off: "Off", yes: "Yes", no: "No",
         save: "Save", saved: "Saved.", reset: "Reset to defaults",
@@ -376,6 +472,12 @@ const VS_PAGE_HTML = `<!DOCTYPE html>
   .seg button { background: transparent; color: #cfcfcf; border: 0; padding: 8px 14px; font-size: 14px; cursor: pointer;
                 touch-action: manipulation; }
   .seg button.sel { background: var(--accent, #6152df); color: #fff; }
+  .chips { display: flex; flex-wrap: wrap; gap: 6px; justify-content: flex-end; max-width: 60%; }
+  .chips button { background: transparent; color: #cfcfcf; border: 1px solid rgba(255,255,255,.15); border-radius: 99px;
+                  padding: 6px 12px; font-size: 13px; cursor: pointer; touch-action: manipulation; }
+  .chips button.sel { background: rgba(255,255,255,.1); color: #8f8f8f; text-decoration: line-through; }
+  textarea { width: 100%; min-height: 84px; background: #1c1c1c; color: #fff; border: 1px solid rgba(255,255,255,.15); border-radius: 8px;
+             padding: 8px 10px; font: 13px/1.4 ui-monospace, Consolas, monospace; resize: vertical; }
   .bar { display: flex; align-items: center; flex-wrap: wrap; gap: 14px; padding: 14px 0; }
   .save { background: var(--accent, #6152df); color: #fff; border: 0; border-radius: 10px; padding: 11px 26px;
           font-size: 15px; font-weight: 600; cursor: pointer; }
@@ -391,6 +493,7 @@ const VS_PAGE_HTML = `<!DOCTYPE html>
     .row { flex-direction: column; align-items: stretch; gap: 8px; }
     select { max-width: none; width: 100%; }
     .seg { align-self: flex-start; }
+    .chips { max-width: none; justify-content: flex-start; }
   }
 </style>
 </head>
@@ -398,7 +501,7 @@ const VS_PAGE_HTML = `<!DOCTYPE html>
 <div class="wrap" id="app"><p class="intro">…</p></div>
 <script>
 (function () {
-  var fields = [], values = {}, text = {}, lang = "de", saved = {}, accent = "", data = {}, resetArmed = false;
+  var fields = [], values = {}, text = {}, lang = "de", saved = {}, accent = "", data = {}, resetArmed = false, backupText = "";
   function L(v) { return v && typeof v === "object" ? (v[lang] || v.en || "") : String(v == null ? "" : v); }
   function F(s, a) { return String(s).replace("{0}", String(a)); }
   function esc(s) { return String(s).replace(/[&<>"']/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]; }); }
@@ -415,6 +518,12 @@ const VS_PAGE_HTML = `<!DOCTYPE html>
     if (f.onOff) opts = [["on", text.on], ["off", text.off]];
     if (f.yesNo) opts = [["yes", text.yes], ["no", text.no]];
     if (f.color) return "<input type='color' data-k='" + f.key + "' value='" + esc(values[f.key]) + "'>";
+    if (f.multi) {
+      var on = String(values[f.key] || "").split(",");
+      return "<div class='chips'>" + opts.map(function (o) {
+        return "<button data-m='" + f.key + "' data-v='" + esc(o[0]) + "' class='" + (on.indexOf(o[0]) >= 0 ? "sel" : "") + "'>" + esc(L(o[1])) + "</button>";
+      }).join("") + "</div>";
+    }
     if (f.onOff || f.yesNo || f.seg) {
       return "<div class='seg'>" + opts.map(function (o) {
         return "<button data-k='" + f.key + "' data-v='" + esc(o[0]) + "' class='" + (values[f.key] === o[0] ? "sel" : "") + "'>" + esc(L(o[1])) + "</button>";
@@ -442,6 +551,7 @@ const VS_PAGE_HTML = `<!DOCTYPE html>
       var off = values["mod_" + sec.section] === "off";
       h += "<div class='card" + (off ? " off" : "") + "'><h2>" + esc(text[sec.section]) + "</h2>";
       if (off) h += "<p class='note'>" + esc(text.disabled) + "</p>";
+      if (sec.section === "extras" && text.skipHint) h += "<p class='note'>" + esc(text.skipHint) + "</p>";
       sec.fields.forEach(function (f) {
         if (f.showIf && values[f.showIf[0]] !== f.showIf[1]) return;
         h += "<div class='row'><div class='lbl'><b>" + esc(L(f.label)) + "</b>" +
@@ -453,6 +563,10 @@ const VS_PAGE_HTML = `<!DOCTYPE html>
     h += "<div class='bar'><button class='save' id='save'" + (dirty() ? "" : " disabled") + ">" + esc(text.save) + "</button>" +
       "<button class='ghost' id='reset'>" + esc(resetArmed ? text.resetConfirm : text.reset) + "</button>" +
       "<span class='msg'>" + esc(msg || "") + "</span></div>";
+    h += "<div class='card'><h2>" + esc(text.backup) + "</h2><p class='note'>" + esc(text.backupHint) + "</p>" +
+      "<textarea id='backup' spellcheck='false'>" + esc(backupText) + "</textarea>" +
+      "<div class='bar'><button class='ghost' id='exp'>" + esc(text.exportBtn) + "</button>" +
+      "<button class='ghost' id='imp'>" + esc(text.importBtn) + "</button></div></div>";
     h += "<div class='card'><h2>" + esc(text.status) + "</h2><p class='note'>" + esc(text.statusHint) + "</p>";
     Object.keys(text.health || {}).forEach(function (k) {
       var t = (data.health || {})[k];
@@ -467,6 +581,18 @@ const VS_PAGE_HTML = `<!DOCTYPE html>
     Array.prototype.forEach.call(app.querySelectorAll(".seg button"), function (b) {
       b.addEventListener("click", function () { change(b.getAttribute("data-k"), b.getAttribute("data-v")); });
     });
+    Array.prototype.forEach.call(app.querySelectorAll(".chips button"), function (b) {
+      b.addEventListener("click", function () {
+        var k = b.getAttribute("data-m"), v = b.getAttribute("data-v");
+        var on = String(values[k] || "").split(",").filter(function (x) { return x && x !== v; });
+        if (!b.classList.contains("sel")) on.push(v);
+        change(k, on.join(","));
+      });
+    });
+    var box = document.getElementById("backup");
+    box.addEventListener("input", function () { backupText = box.value; });
+    document.getElementById("exp").addEventListener("click", function () { window.webview.send("export", {}); });
+    document.getElementById("imp").addEventListener("click", function () { window.webview.send("import", { text: box.value }); });
     Array.prototype.forEach.call(app.querySelectorAll("select"), function (s) {
       s.addEventListener("change", function () { change(s.getAttribute("data-k"), s.value); });
     });
@@ -496,6 +622,14 @@ const VS_PAGE_HTML = `<!DOCTYPE html>
       render(d.msg || "");
     });
     window.webview.on("accent", function (d) { accent = d.accent || ""; render(); });
+    window.webview.on("exported", function (d) {
+      backupText = d.text || "";
+      render(text.exported);
+      var box = document.getElementById("backup");
+      try { box.focus(); box.select(); } catch (e) {}
+      try { if (navigator.clipboard) navigator.clipboard.writeText(backupText).catch(function () {}); } catch (e) {}
+      try { document.execCommand("copy"); } catch (e) {}
+    });
     window.webview.send("ready", {});
   }
   start();
@@ -605,31 +739,28 @@ function vsSetupUI(ctx) {
         const colors = vsSchemeColors(s)
         return colors ? vsPaletteCss(colors) + VS_THEME_CSS : ""
     }
-    function applyTheme(s) {
+    // Only touches the page when the CSS changed (onMainTabReady forces it: the element is gone then)
+    let themeApplied = null
+    function applyTheme(s, force) {
         const css = themeCss(s)
-        ctx.dom.queryOne("[data-vsuite-theme]").then((existing) => {
-            if (!css) {
-                if (existing) existing.remove()
-                return
-            }
-            if (existing) {
-                existing.setText(css)
-                return
-            }
-            return Promise.all([ctx.dom.createElement("style"), ctx.dom.queryOne("body")]).then((res) => {
-                const style = res[0]
-                const parent = res[1]
-                if (!style || !parent) return
-                style.setAttribute("data-vsuite-theme", "1")
-                style.setText(css)
-                parent.append(style)
-            })
-        }).catch((e) => console.warn("viktempest-ui: theme", e))
+        if (!force && css === themeApplied) return
+        themeApplied = css
+        vsSetStyle(ctx, "data-vsuite-theme", css)
     }
     // The style element is lost when the page reloads, so it is added again when a tab is ready.
     // (onNavigate and onReady are left to the modules.)
-    ctx.dom.onMainTabReady(() => applyTheme(vsLoadSettings()))
-    applyTheme(settings)
+    ctx.dom.onMainTabReady(() => { const s = vsLoadSettings(); applyTheme(s, true); applyLayout(s, true) })
+    applyTheme(settings, true)
+
+    // --- Sidebar: slide away and hide entries (also applies right away)
+    let layoutApplied = null
+    function applyLayout(s, force) {
+        const css = vsLayoutCss(s)
+        if (!force && css === layoutApplied) return
+        layoutApplied = css
+        vsSetStyle(ctx, "data-vsuite-layout", css)
+    }
+    applyLayout(settings, true)
 
     // --- Settings page in the sidebar
     const page = ctx.newWebview({
@@ -683,6 +814,7 @@ function vsSetupUI(ctx) {
         })
         vsSaveSettings(next)
         applyTheme(next)
+        applyLayout(next)
     })
 
     // Settings marked "live" are saved and applied one by one as they change
@@ -692,6 +824,7 @@ function vsSetupUI(ctx) {
         next[e.key] = String(e.value)
         vsSaveSettings(next)
         applyTheme(next)
+        applyLayout(next)
         page.channel.send("accent", { accent: vsAccentHex(next) })
     })
 
@@ -699,7 +832,25 @@ function vsSetupUI(ctx) {
         const next = vsDefaults()
         vsSaveSettings(next)
         applyTheme(next)
+        applyLayout(next)
         sendInit(VS_PAGE_TEXT[pageLang].resetDone + " " + VS_PAGE_TEXT[pageLang].restart)
+    })
+
+    // Back up and load: the settings as one line of text
+    page.channel.on("export", () => {
+        const s = vsLoadSettings()
+        page.channel.send("exported", { text: JSON.stringify({ app: "viktempest-ui", version: VS_VERSION, settings: s }) })
+    })
+    page.channel.on("import", (e) => {
+        const next = vsImportSettings(e && e.text)
+        if (!next) {
+            sendInit(VS_PAGE_TEXT[pageLang].importFailed)
+            return
+        }
+        vsSaveSettings(next)
+        applyTheme(next)
+        applyLayout(next)
+        sendInit(VS_PAGE_TEXT[pageLang].imported + " " + VS_PAGE_TEXT[pageLang].restart)
     })
 
     // --- First start: ask for a colour scheme once
