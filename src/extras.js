@@ -29,6 +29,7 @@ function init() {
                 menuWatched: "Bis hier als gesehen markieren", menuPlay: "Online-Stream starten", menuWatchedDone: "Fortschritt auf {0} gesetzt.",
                 menuFailed: "Konnte den Fortschritt nicht speichern: {0}",
                 rateAsk: "Letzte Folge von „{0}“ geschafft. Wie fandest du es?",
+                nextGo: "Weiter mit der nächsten Staffel: {0}", nextSoon: "Die nächste Staffel „{0}“ {1}.", nextSoonDate: "startet am {0}", nextSoonNoDate: "ist angekündigt", contTitle: "Weiterschauen", contEp: "Folge {0}", contAction: "Weiterschauen: {0}",
             },
             en: {
                 saverBack: "Back to Seanime", saverOpen: "Watch", saverEpisodes: "{0} episodes", saverHint: "Screensaver",
@@ -43,6 +44,7 @@ function init() {
                 menuWatched: "Mark watched up to here", menuPlay: "Start online stream", menuWatchedDone: "Progress set to {0}.",
                 menuFailed: "Could not save the progress: {0}",
                 rateAsk: "You finished \"{0}\". How did you like it?",
+                nextGo: "On to the next season: {0}", nextSoon: "The next season \"{0}\" {1}.", nextSoonDate: "starts on {0}", nextSoonNoDate: "is announced", contTitle: "Continue watching", contEp: "Episode {0}", contAction: "Continue: {0}",
             },
             es: {
                 saverBack: "Volver a Seanime", saverOpen: "Ver", saverEpisodes: "{0} episodios", saverHint: "Salvapantallas",
@@ -57,6 +59,7 @@ function init() {
                 menuWatched: "Marcar visto hasta aquí", menuPlay: "Ver en streaming", menuWatchedDone: "Progreso: {0}.",
                 menuFailed: "No se pudo guardar el progreso: {0}",
                 rateAsk: "Terminaste \"{0}\". ¿Qué te pareció?",
+                nextGo: "Siguiente temporada: {0}", nextSoon: "La siguiente temporada \"{0}\" {1}.", nextSoonDate: "empieza el {0}", nextSoonNoDate: "está anunciada", contTitle: "Seguir viendo", contEp: "Episodio {0}", contAction: "Seguir: {0}",
             },
             pt: {
                 saverBack: "Voltar ao Seanime", saverOpen: "Assistir", saverEpisodes: "{0} episódios", saverHint: "Protetor de tela",
@@ -71,6 +74,7 @@ function init() {
                 menuWatched: "Marcar assistido até aqui", menuPlay: "Assistir online", menuWatchedDone: "Progresso: {0}.",
                 menuFailed: "Não foi possível salvar o progresso: {0}",
                 rateAsk: "Você terminou \"{0}\". O que achou?",
+                nextGo: "Próxima temporada: {0}", nextSoon: "A próxima temporada \"{0}\" {1}.", nextSoonDate: "começa em {0}", nextSoonNoDate: "foi anunciada", contTitle: "Continuar assistindo", contEp: "Episódio {0}", contAction: "Continuar: {0}",
             },
             ja: {
                 saverBack: "Seanimeに戻る", saverOpen: "見る", saverEpisodes: "{0}話", saverHint: "スクリーンセーバー",
@@ -85,6 +89,7 @@ function init() {
                 menuWatched: "ここまで視聴済みにする", menuPlay: "オンラインで再生", menuWatchedDone: "進捗を{0}にしました。",
                 menuFailed: "進捗を保存できませんでした: {0}",
                 rateAsk: "「{0}」を見終わりました。評価しますか？",
+                nextGo: "次のシーズンへ: {0}", nextSoon: "次のシーズン「{0}」は{1}。", nextSoonDate: "{0}開始", nextSoonNoDate: "発表済み", contTitle: "続きを見る", contEp: "第{0}話", contAction: "続きを見る: {0}",
             },
         }
 
@@ -97,10 +102,11 @@ function init() {
             const l = pref("language", "de")
             return I18N[l] ? l : "en"
         }
-        function t(key, arg) {
+        function t(key, arg, arg2) {
             const table = I18N[lang()] || I18N.en
             let s = table[key] !== undefined ? table[key] : I18N.en[key]
             if (typeof s === "string" && arg !== undefined) s = s.split("{0}").join(String(arg))
+            if (typeof s === "string" && arg2 !== undefined) s = s.split("{1}").join(String(arg2))
             return s
         }
         function plain(v) {
@@ -168,9 +174,9 @@ function init() {
         onVideo("video-can-play", (e) => { player.playing = !e.paused; sleep.onPlay() })
         onVideo("video-status", (e) => { player.playing = !e.paused })
         onVideo("video-paused", () => { player.playing = false })
-        onVideo("video-terminated", () => { player.playing = false; rate.onStop() })
-        onVideo("video-ended", (e) => { player.playing = false; sleep.onEnded(e); rate.onStop() })
-        onVideo("video-completed", () => rate.onCompleted())
+        onVideo("video-terminated", () => { player.playing = false; finish.onStop() })
+        onVideo("video-ended", (e) => { player.playing = false; sleep.onEnded(e); finish.onStop() })
+        onVideo("video-completed", () => finish.onCompleted())
 
         // -----------------------------------------------------------------------------------------
         // Activity: the last time you clicked, typed or scrolled in Seanime. One listener per
@@ -397,12 +403,49 @@ function init() {
         }
 
         // -----------------------------------------------------------------------------------------
-        // Rating after the last episode (opens the Custom Ratings window when that part is on)
+        // After the last episode of a season: rating window (Custom Ratings) and the next season.
+        // video-completed comes while the episode still plays (Seanime counts it as watched),
+        // so this only remembers the anime; the rest happens when the player stops.
 
-        const rate = {
+        const SEQUEL_FORMATS = { TV: 3, TV_SHORT: 3, ONA: 2, MOVIE: 1, OVA: 1, SPECIAL: 0 }
+
+        // The sequel from the Season Switcher's cache, otherwise one AniList request
+        function sequelOf(media) {
+            let best = null
+            const consider = (n) => {
+                if (!n || !n.id || n.id === media.id || n.status === "CANCELLED") return
+                if (n.type && n.type !== "ANIME") return
+                const score = SEQUEL_FORMATS[n.format] !== undefined ? SEQUEL_FORMATS[n.format] : 0
+                if (!best || score > best.score) best = { score: score, id: n.id, title: titleOf(n), status: n.status, start: n.startDate || null }
+            }
+            try {
+                const node = $store.get("vtss:node:" + media.id)
+                if (node && node.rel) {
+                    node.rel.forEach((r) => {
+                        if (r.type !== "SEQUEL" || (r.mediaType && r.mediaType !== "ANIME")) return
+                        const n = $store.get("vtss:node:" + r.id)
+                        if (n) consider(n)
+                        else consider({ id: r.id })
+                    })
+                    if (best && best.title) return best
+                }
+            }
+            catch (e) {}
+            try {
+                const details = plain($anilist.getAnimeDetails(media.id))
+                best = null
+                const edges = (details && details.relations && details.relations.edges) || []
+                edges.forEach((edge) => { if (edge && edge.relationType === "SEQUEL") consider(edge.node) })
+            }
+            catch (e) {
+                console.warn("viktempest-ui extras: next season", e)
+            }
+            return best
+        }
+
+        const finish = {
             pending: null,
             onCompleted() {
-                if (pref("rateAfter", "yes") !== "yes") return
                 const info = playbackInfo()
                 const media = info && info.media
                 const ep = info && info.episode
@@ -410,23 +453,69 @@ function init() {
                 const num = ep.progressNumber || ep.episodeNumber || 0
                 const total = media.episodes || 0
                 if (!total || num < total) return
-                let asked = {}
-                try { asked = $storage.get("vsx:rateAsked") || {} } catch (e) {}
-                if (asked[media.id]) return
-                this.pending = media
+                this.pending = { media: media, time: Date.now() }
             },
             onStop() {
-                const media = this.pending
+                const p = this.pending
                 this.pending = null
-                if (!media || typeof share.rate !== "function") return
-                try {
-                    const asked = $storage.get("vsx:rateAsked") || {}
-                    asked[media.id] = Date.now()
-                    $storage.set("vsx:rateAsked", asked)
-                } catch (e) {}
-                ctx.toast.info(t("rateAsk", titleOf(media)))
-                share.rate(media)
+                // Old news (e.g. the player was left open for hours) is ignored
+                if (!p || Date.now() - p.time > 3 * 3600 * 1000) return
+                const media = p.media
+                let went = false
+                if (pref("nextSeason", "yes") === "yes") went = this.next(media)
+                if (pref("rateAfter", "yes") === "yes" && typeof share.rate === "function") {
+                    let asked = {}
+                    try { asked = $storage.get("vsx:rateAsked") || {} } catch (e) {}
+                    if (!asked[media.id]) {
+                        try {
+                            asked[media.id] = Date.now()
+                            $storage.set("vsx:rateAsked", asked)
+                        } catch (e) {}
+                        // After the page change, so the window opens on the new page
+                        const open = () => {
+                            ctx.toast.info(t("rateAsk", titleOf(media)))
+                            try { share.rate(media) } catch (e) { console.warn("viktempest-ui extras: rating", e) }
+                        }
+                        if (went) ctx.setTimeout(open, 1500)
+                        else open()
+                    }
+                }
             },
+            // Opens the next season's page. Returns true when the page was changed.
+            next(media) {
+                const seq = sequelOf(media)
+                if (!seq) return false
+                if (seq.status === "NOT_YET_RELEASED") {
+                    const d = dateText(seq.start)
+                    ctx.toast.info(t("nextSoon", seq.title || "", d ? t("nextSoonDate", d) : t("nextSoonNoDate")))
+                    return false
+                }
+                if (seq.title) ctx.toast.success(t("nextGo", seq.title))
+                ctx.screen.navigateTo("/entry", { id: String(seq.id) })
+                return true
+            },
+        }
+
+        // -----------------------------------------------------------------------------------------
+        // Continue watching: the anime you watched last, a click starts the next episode
+
+        // Your list from Seanime's cache, newest first. Only anime with an episode that is out.
+        function continueList(max) {
+            const out = []
+            listEntries().forEach((e) => {
+                if (e.status !== "CURRENT" && e.status !== "REPEATING") return
+                const m = e.media
+                const next = (e.progress || 0) + 1
+                if (m.episodes && next > m.episodes) return
+                if (m.nextAiringEpisode && m.nextAiringEpisode.episode && next >= m.nextAiringEpisode.episode) return
+                if (m.status === "NOT_YET_RELEASED") return
+                out.push({ id: m.id, title: titleOf(m), ep: next, time: e.updatedAt || 0 })
+            })
+            out.sort((a, b) => b.time - a.time)
+            return out.slice(0, max)
+        }
+        function playNext(item) {
+            ctx.screen.navigateTo("/entry", { id: String(item.id), tab: "onlinestream", episode: String(item.ep) })
         }
 
         // -----------------------------------------------------------------------------------------
@@ -585,6 +674,12 @@ function init() {
                     if (sleep.until || sleep.afterEp) {
                         items.push({ label: t("quickSleepOff"), value: "action " + t("quickSleepOff"), heading: t("quickActions"), filterType: "includes", onSelect: () => { palette.close(); sleep.set(0) } })
                     }
+                    if (pref("continueWatching", "yes") === "yes") {
+                        continueList(5).forEach((c) => {
+                            const label = t("contAction", c.title + " · " + t("contEp", c.ep))
+                            items.push({ label: label, value: "continue " + label, heading: t("contTitle"), filterType: "includes", onSelect: () => { palette.close(); playNext(c) } })
+                        })
+                    }
                     const statusText = t("status") || {}
                     const order = { CURRENT: 0, REPEATING: 0, PAUSED: 1, PLANNING: 2, COMPLETED: 3, DROPPED: 4 }
                     listEntries()
@@ -639,8 +734,35 @@ function init() {
                 quick: t("quick") + " (Ctrl+K)", newTitle: t("newTitle"),
             }
             const showNew = pref("newSeasons", "yes") === "yes"
+            // Continue watching: made when the tray opens, the render only draws it
+            const cont = { items: [], clicks: {}, title: t("contTitle"), ep: t("contEp", "{0}") }
+            const contClick = (c) => {
+                const key = c.id + ":" + c.ep
+                if (!cont.clicks[key]) cont.clicks[key] = ctx.eventHandler("vsx-cont-" + c.id + "-" + c.ep, () => playNext(c))
+                return cont.clicks[key]
+            }
+            const fillContinue = () => {
+                if (pref("continueWatching", "yes") !== "yes") { cont.items = []; return }
+                cont.items = continueList(3).map((c) => ({
+                    label: "▶ " + c.title + " · " + cont.ep.split("{0}").join(String(c.ep)),
+                    onClick: contClick(c),
+                }))
+            }
+            fillContinue()
+            try {
+                tray.onOpen(() => {
+                    const before = JSON.stringify(cont.items.map((c) => c.label))
+                    fillContinue()
+                    if (JSON.stringify(cont.items.map((c) => c.label)) !== before) trayUpdate()
+                })
+            }
+            catch (e) {}
             share.traySections.push((tr) => {
                 const items = []
+                if (cont.items.length) {
+                    items.push(tr.text(cont.title, { className: "font-semibold" }))
+                    cont.items.forEach((c) => items.push(tr.button(c.label, { size: "sm", intent: "primary-subtle", onClick: c.onClick })))
+                }
                 items.push(tr.text(text.sleepTitle + ": " + sleep.label(), { className: "font-semibold" }))
                 items.push(tr.flex([
                     tr.button("15", { size: "sm", intent: "gray-subtle", onClick: ev.sleep15 }),

@@ -1779,58 +1779,69 @@ function init() {
 
         tray.onOpen(() => loadTray(false))
 
+        // The render function runs often and must only build components: handlers and texts
+        // are made once here.
+        const trayEv = {
+            names: ctx.eventHandler("acr-tray-setup-names", (e) => { trayState.setupNames = (e && e.value) || "" }),
+            anime: ctx.eventHandler("acr-tray-setup-anime", () => traySetup("ANIME")),
+            manga: ctx.eventHandler("acr-tray-setup-manga", () => traySetup("MANGA")),
+            refresh: ctx.eventHandler("acr-tray-refresh", () => loadTray(true)),
+        }
+        const trayText = {}
+        ;["trayTitle", "trayHowTo", "loading", "trayNotLoggedIn", "error", "traySetupAnime", "traySetupManga", "trayRefresh", "setupDefault", "anime", "manga"]
+            .forEach((k) => { trayText[k] = t(k) })
+        const cap = (x) => x.charAt(0).toUpperCase() + x.slice(1)
+        trayText.animeCats = (names) => cap(names.length ? t("trayCats", trayText.anime, names.join(", ")) : t("trayNoCats", trayText.anime))
+        trayText.mangaCats = (names) => cap(names.length ? t("trayCats", trayText.manga, names.join(", ")) : t("trayNoCats", trayText.manga))
+        // Texts that depend on the state are made when the state changes
+        const trayLines = { key: "", name: "", anime: "", manga: "" }
+        function trayLinesFor() {
+            const key = trayState.name + "|" + trayState.anime.join(",") + "|" + trayState.manga.join(",")
+            if (trayLines.key !== key) {
+                trayLines.key = key
+                trayLines.name = trayState.name ? t("trayLoggedIn", trayState.name) : ""
+                trayLines.anime = trayText.animeCats(trayState.anime)
+                trayLines.manga = trayText.mangaCats(trayState.manga)
+            }
+            return trayLines
+        }
+
         tray.render(() => {
             const items = trayHeader().concat([
-                tray.text(t("trayTitle"), { className: "font-semibold" }),
-                tray.text(t("trayHowTo"), { className: "text-sm text-[--muted]" }),
+                tray.text(trayText.trayTitle, { className: "font-semibold" }),
+                tray.text(trayText.trayHowTo, { className: "text-sm text-[--muted]" }),
             ])
             if (trayState.loading) {
-                items.push(tray.text(t("loading"), { className: "text-sm" }))
+                items.push(tray.text(trayText.loading, { className: "text-sm" }))
                 return tray.stack(items, { gap: 3 })
             }
             if (!trayState.loggedIn) {
-                items.push(tray.alert({ title: t("trayNotLoggedIn"), intent: "warning" }))
+                items.push(tray.alert({ title: trayText.trayNotLoggedIn, intent: "warning" }))
                 return tray.stack(items, { gap: 3 })
             }
             if (trayState.error) {
-                items.push(tray.alert({ title: t("error"), description: trayState.error, intent: "alert" }))
+                items.push(tray.alert({ title: trayText.error, description: trayState.error, intent: "alert" }))
             }
             else {
-                if (trayState.name) items.push(tray.text(t("trayLoggedIn", trayState.name), { className: "text-sm" }))
-                const cap = (x) => x.charAt(0).toUpperCase() + x.slice(1)
-                items.push(tray.text(cap(trayState.anime.length ? t("trayCats", t("anime"), trayState.anime.join(", ")) : t("trayNoCats", t("anime"))), { className: "text-sm" }))
-                items.push(tray.text(cap(trayState.manga.length ? t("trayCats", t("manga"), trayState.manga.join(", ")) : t("trayNoCats", t("manga"))), { className: "text-sm" }))
+                const lines = trayLinesFor()
+                if (lines.name) items.push(tray.text(lines.name, { className: "text-sm" }))
+                items.push(tray.text(lines.anime, { className: "text-sm" }))
+                items.push(tray.text(lines.manga, { className: "text-sm" }))
 
                 if (!trayState.anime.length || !trayState.manga.length) {
-                    if (!trayState.setupNames) trayState.setupNames = t("setupDefault")
-                    items.push(tray.input({
-                        value: trayState.setupNames,
-                        disabled: trayState.saving,
-                        onChange: ctx.eventHandler("acr-tray-setup-names", (e) => {
-                            trayState.setupNames = (e && e.value) || ""
-                        }),
-                    }))
+                    if (!trayState.setupNames) trayState.setupNames = trayText.setupDefault
+                    items.push(tray.input({ value: trayState.setupNames, disabled: trayState.saving, onChange: trayEv.names }))
                     const buttons = []
-                    if (!trayState.anime.length) buttons.push(tray.button(t("traySetupAnime"), {
-                        intent: "primary-subtle",
-                        size: "sm",
-                        loading: trayState.saving,
-                        onClick: ctx.eventHandler("acr-tray-setup-anime", () => traySetup("ANIME")),
+                    if (!trayState.anime.length) buttons.push(tray.button(trayText.traySetupAnime, {
+                        intent: "primary-subtle", size: "sm", loading: trayState.saving, onClick: trayEv.anime,
                     }))
-                    if (!trayState.manga.length) buttons.push(tray.button(t("traySetupManga"), {
-                        intent: "primary-subtle",
-                        size: "sm",
-                        loading: trayState.saving,
-                        onClick: ctx.eventHandler("acr-tray-setup-manga", () => traySetup("MANGA")),
+                    if (!trayState.manga.length) buttons.push(tray.button(trayText.traySetupManga, {
+                        intent: "primary-subtle", size: "sm", loading: trayState.saving, onClick: trayEv.manga,
                     }))
                     items.push(tray.flex(buttons, { gap: 2 }))
                 }
             }
-            items.push(tray.button(t("trayRefresh"), {
-                intent: "gray-subtle",
-                size: "sm",
-                onClick: ctx.eventHandler("acr-tray-refresh", () => loadTray(true)),
-            }))
+            items.push(tray.button(trayText.trayRefresh, { intent: "gray-subtle", size: "sm", onClick: trayEv.refresh }))
             return tray.stack(items, { gap: 3 })
         })
     })
