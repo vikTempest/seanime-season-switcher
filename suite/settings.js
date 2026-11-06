@@ -24,8 +24,27 @@ function vsRegister(name, fn) {
 // A plugin has one tray, so a module that wants its own tray content asks for it here.
 let vsTrayState = { ctx: null, tray: null, header: null }
 
-// Shared between the parts: extra tray sections, the rating window, whether the colour picker is open
-const vsShare = { traySections: [], rate: null, pickerOpen: false }
+// Shared between the parts: extra tray sections, the rating window, whether the colour picker is
+// open, and who wants your list with relations when it was loaded (once a day)
+const vsShare = { traySections: [], rate: null, pickerOpen: false, onWarm: [] }
+
+// The AniList cache and request limit every part uses (suite/anilist.js, put in by build.py)
+const vsAni = $vsAniLib()
+
+// Once a day your whole list with relations in one request. It fills the cache for the season
+// switcher and is used for the new-seasons notice, so neither needs requests of its own.
+function vsWarm(ctx) {
+    let col = null
+    try { col = vsAni.warm(false) }
+    catch (e) {
+        console.warn("viktempest-ui: could not load your list with relations", e)
+        return
+    }
+    if (!col) return
+    vsShare.onWarm.forEach((fn) => {
+        try { fn(col) } catch (e) { console.warn("viktempest-ui: after loading the list", e) }
+    })
+}
 
 function vsOpenSettings() {
     try { vsTrayState.ctx.screen.navigateTo("/webview", { id: VS_EXT_ID }) }
@@ -270,6 +289,7 @@ const VS_CHANGES = {
         "1.2.0: Extras: Bildschirmschoner, Schlaftimer und Schnellsuche (Strg+K), Hinweis auf neue Staffeln, Filler abdunkeln oder ausblenden, Rechtsklick auf Folgen, Bewerten nach der letzten Folge",
         "1.2.1: Seanime hängt nicht mehr nach der Installation (Bildschirmschoner-Erkennung), Absturz beim Symbol oben behoben",
         "1.3.0: Nach der letzten Folge direkt zur nächsten Staffel, Weiterschauen mit einem Klick, Seitenleiste einfahren und Einträge ausblenden, Einstellungen sichern und laden, stabiler",
+        "1.4.0: Viel weniger AniList-Anfragen: Staffeldaten werden gespeichert (auch nach einem Neustart), deine Liste kommt einmal am Tag in einer Anfrage, alle Teile teilen sich ein Limit pro Minute und warten nach „zu viele Anfragen“ gemeinsam",
     ],
     en: [
         "Colour schemes: red, purple, blue or your own colours, picked on first start",
@@ -282,6 +302,7 @@ const VS_CHANGES = {
         "1.2.0: Extras: screensaver, sleep timer and quick search (Ctrl+K), notice about new seasons, dim or hide filler, right-click on episodes, rating after the last episode",
         "1.2.1: Seanime no longer hangs after installing (screensaver activity check), fixed a crash in the tray icon",
         "1.3.0: Straight to the next season after the last episode, continue watching in one click, slide-away sidebar and hidden entries, back up and load settings, more stable",
+        "1.4.0: Far fewer AniList requests: season data is saved (also across restarts), your list comes once a day in one request, all parts share a per-minute limit and wait together after \"too many requests\"",
     ],
 }
 
@@ -909,6 +930,10 @@ function vsSetupUI(ctx) {
             console.error("viktempest-ui: " + m.name + " failed to start", e)
         }
     })
+
+    // A minute after the start (Seanime loads its own things first), then checked every 6 hours
+    ctx.setTimeout(() => vsWarm(ctx), 60000)
+    ctx.setInterval(() => vsWarm(ctx), 6 * 3600 * 1000)
 
     // No module filled the tray (e.g. Custom Ratings is off): a tray with just the settings button
     if (!vsTrayState.tray) {

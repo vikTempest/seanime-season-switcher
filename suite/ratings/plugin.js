@@ -128,6 +128,7 @@ function init() {
                 traySetupManga: "Set up for manga",
                 trayRefresh: "Refresh",
                 trayRefreshed: "Updated.",
+                busy: "AniList asked for a short break. Please try again in {0} s.",
             },
             de: {
                 anime: "Anime", manga: "Manga",
@@ -184,6 +185,7 @@ function init() {
                 traySetupManga: "Für Manga einrichten",
                 trayRefresh: "Aktualisieren",
                 trayRefreshed: "Aktualisiert.",
+                busy: "AniList möchte eine kurze Pause. Bitte in {0} s noch einmal versuchen.",
             },
             es: {
                 anime: "anime", manga: "manga",
@@ -240,6 +242,7 @@ function init() {
                 traySetupManga: "Configurar para manga",
                 trayRefresh: "Actualizar",
                 trayRefreshed: "Actualizado.",
+                busy: "AniList pidió una pausa corta. Inténtalo de nuevo en {0} s.",
             },
             pt: {
                 anime: "anime", manga: "mangá",
@@ -296,6 +299,7 @@ function init() {
                 traySetupManga: "Configurar para mangá",
                 trayRefresh: "Atualizar",
                 trayRefreshed: "Atualizado.",
+                busy: "O AniList pediu uma pausa curta. Tente de novo em {0} s.",
             },
             ja: {
                 anime: "アニメ", manga: "マンガ",
@@ -352,6 +356,7 @@ function init() {
                 traySetupManga: "マンガ用に設定",
                 trayRefresh: "更新",
                 trayRefreshed: "更新しました。",
+                busy: "AniListが少し休憩を求めています。{0}秒後にもう一度お試しください。",
             },
         }
 
@@ -512,6 +517,12 @@ function init() {
         function query(body) {
             const token = getToken()
             if (!token) throw new Error(t("notLoggedIn"))
+            // Through the extension's shared limit when it is there (see suite/anilist.js)
+            if (typeof vsAni === "object" && vsAni) {
+                const w = vsAni.cooldown()
+                if (w > 0) throw new Error(t("busy").replace("{0}", String(Math.ceil(w / 1000))))
+                return vsAni.request(body, token, { urgent: true })
+            }
             return plain($anilist.customQuery(body, token))
         }
 
